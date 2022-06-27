@@ -2,6 +2,17 @@ package net.degoes.zio
 
 import zio._
 
+/**
+object Helper {
+  trait Config;
+
+  def loadFile(file: String): IO[IOException, String] = ???
+
+  def loadBootstrapConfig =
+    loadFile("bootstrap.yml").flatMap(_ => ???)
+}
+*/
+
 /*
  * INTRODUCTION
  *
@@ -16,6 +27,11 @@ import zio._
  *
  * In this section, you will learn about all these operators, as well as the
  * rich underlying model of errors that ZIO uses internally.
+ *
+ * Two error channels:
+ *
+ * 1. Recoverable error channel , errors we can refine
+ * 2. No Recoverable error channel, errors in the JVM
  */
 
 object ErrorConstructor extends ZIOAppDefault {
@@ -27,7 +43,7 @@ object ErrorConstructor extends ZIOAppDefault {
    * string value, such as "Uh oh!". Explain the type signature of the
    * effect.
    */
-  val failed: ZIO[Any, String, Nothing] = ???
+  val failed: ZIO[Any, String, Nothing] = ZIO.fail("Uh oh!")
 
   val run =
     failed.foldZIO(Console.printLine(_), Console.printLine(_))
@@ -40,11 +56,13 @@ object ErrorRecoveryOrElse extends ZIOAppDefault {
   /**
    * EXERCISE
    *
-   * Using `ZIO#orElse` have the `run` function compose the preceding `failed`
-   * effect with another effect that succeeds with a success exit code.
+   * Using `ZIO.orElse` have the `run` function compose the preceding `failed`
+   * effect with another effect.
+   *
+   * It cannot fail,
    */
   val run =
-    ???
+    failed.orElse(Console.printLine("Hello")).orElse(ZIO.succeed(42))
 }
 
 object ErrorShortCircuit extends ZIOAppDefault {
@@ -61,7 +79,7 @@ object ErrorShortCircuit extends ZIOAppDefault {
    * succeeds with an exit code.
    */
   val run =
-    ???
+    failed.orElse(ZIO.unit)
 }
 
 object ErrorRecoveryFold extends ZIOAppDefault {
@@ -74,8 +92,7 @@ object ErrorRecoveryFold extends ZIOAppDefault {
    * Using `ZIO#fold`, map both failure and success values of `failed` into
    * the unit value.
    */
-  val run =
-    ???
+  val run = failed.fold(error => error, success => success)
 }
 
 object ErrorRecoveryCatchAll extends ZIOAppDefault {
@@ -87,9 +104,10 @@ object ErrorRecoveryCatchAll extends ZIOAppDefault {
    *
    * Using `ZIO#catchAll`, catch all errors in `failed` and print them out to
    * the console using `Console.printLine`.
+   *
+   * ZIO#catchAll is like ZIO.flatMap for error channel.
    */
-  val run =
-    ???
+  val run = failed.catchAll(error => Console.printLine(error))
 }
 
 object ErrorRecoveryFoldZIO extends ZIOAppDefault {
@@ -102,8 +120,7 @@ object ErrorRecoveryFoldZIO extends ZIOAppDefault {
    * Using `ZIO#foldZIO`, print out the success or failure value of `failed`
    * by using `Console.printLine`.
    */
-  val run =
-    ???
+  val run = failed.foldZIO(error => Console.printLine(error), success => Console.printLine(success))
 }
 
 object ErrorRecoveryEither extends ZIOAppDefault {
@@ -116,8 +133,7 @@ object ErrorRecoveryEither extends ZIOAppDefault {
    * Using `ZIO#either`, surface the error of `failed` into the success
    * channel, and then map the `Either[String, Int]` into an exit code.
    */
-  val run =
-    ???
+  val run = failed.either
 }
 
 object ErrorRecoveryIgnore extends ZIOAppDefault {
@@ -128,9 +144,10 @@ object ErrorRecoveryIgnore extends ZIOAppDefault {
    * EXERCISE
    *
    * Using `ZIO#ignore`, simply ignore the failure of `failed`.
+   *
+   * Error Refinement is the process to handle errors
    */
-  val run =
-    ???
+  val run = failed.ignore
 }
 
 object ErrorRefinement1 extends ZIOAppDefault {
@@ -145,7 +162,15 @@ object ErrorRefinement1 extends ZIOAppDefault {
    * Using `ZIO#refineToOrDie`, narrow the error type of `broadReadLine` into
    * an `IOException`:
    */
-  val myReadLine: IO[IOException, String] = ???
+  val myReadLine: IO[IOException, String] = {
+    /**
+    broadReadLine.refineOrDie {
+      case error: IOException => error
+    }
+    */
+
+    broadReadLine.refineToOrDie[IOException]
+  }
 
   def myPrintLn(line: String): UIO[Unit] = ZIO.succeed(println(line))
 
