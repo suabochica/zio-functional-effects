@@ -2,10 +2,28 @@ package net.degoes.zio
 
 import zio._
 
+/**
+ * Fibers are like threads but faster and lightweight.
+ */
+
 object ForkJoin extends ZIOAppDefault {
 
   val printer =
     Console.printLine(".").repeat(Schedule.recurs(10))
+
+  /**
+   *  Here we get three fibers running:
+   *  1. main
+   *  2. left
+   *  3. right
+   */
+  def parallel[A, B](left: Task[A], right: Task[B]): Task[(A, B)] =
+    for {
+      fiberA <- left.fork
+      fiberB <- right.fork
+      a <- fiberA.join
+      b <- fiberB.join
+    } yield (a, b)
 
   /**
    * EXERCISE
@@ -15,7 +33,10 @@ object ForkJoin extends ZIOAppDefault {
    * and finally, print out a message "Joined".
    */
   val run =
-    printer
+    for {
+      fiber <- printer.fork
+      _     <- fiber.join
+    } yield ()
 }
 
 object ForkInterrupt extends ZIOAppDefault {
@@ -32,7 +53,13 @@ object ForkInterrupt extends ZIOAppDefault {
    * finally, print out a message "Interrupted".
    */
   val run =
-    (infinitePrinter *> ZIO.sleep(10.millis))
+    for {
+      fiber <- infinitePrinter.fork
+      _     <- ZIO.sleep(10.millis)
+      exit  <- fiber.interrupt
+      _     <- Console.printLine(exit)
+    } yield ()
+
 }
 
 object ParallelFib extends ZIOAppDefault {

@@ -30,8 +30,21 @@ object Helper {
  *
  * Two error channels:
  *
- * 1. Recoverable error channel , errors we can refine
- * 2. No Recoverable error channel, errors in the JVM
+ * 1. Recoverable error channel , errors we defined via types (e.g. load a setup file, load i18n file,
+ * cases related to IOException)
+ * 2. No Recoverable error channel, errors in the JVM that are throwable (e.g. NullPointerException,
+ * RuntimeException, Index out of bounds, Stackoverflow).
+ *
+ * Rule
+ * > You can handle recoverable errors via a fallback plan or retries, but, you cannot handle non-recoverable error.
+ *
+ * You can shift information between recoverable error channel and non-recoverable error channel.
+ *
+ * What can happen when you consider that a non-recoverable error is a recoverable error?
+ * - You catch an (Out of Memory OOM) and then pretty much all behavior is undefined
+ *
+ * Are there any strategies around when to use Exception as a super type on custom errors?
+ * - When is a business logic/domain error you should not extend it from Exception. Instead use sealed traits.
  */
 
 object ErrorConstructor extends ZIOAppDefault {
@@ -59,7 +72,7 @@ object ErrorRecoveryOrElse extends ZIOAppDefault {
    * Using `ZIO.orElse` have the `run` function compose the preceding `failed`
    * effect with another effect.
    *
-   * It cannot fail,
+   * It cannot fail, otherwise trust in ZIO and let it fail.
    */
   val run =
     failed.orElse(Console.printLine("Hello")).orElse(ZIO.succeed(42))
@@ -196,7 +209,8 @@ object ErrorRefinement2 extends ZIOAppDefault {
    */
   lazy val getAlarmDuration: ZIO[Any, IOException, Duration] = {
     def parseDuration(input: String): IO[NumberFormatException, Duration] =
-      ???
+      ZIO.attempt(Duration.fromSeconds(input.toLong))
+        .refineToOrDie[NumberFormatException]
 
     def fallback(input: String): ZIO[Any, IOException, Duration] =
       Console.printLine(s"The input ${input} is not valid.") *> getAlarmDuration
@@ -216,7 +230,11 @@ object ErrorRefinement2 extends ZIOAppDefault {
    * prints out a wakeup alarm message, like "Time to wakeup!!!".
    */
   val run =
-    ???
+    for {
+      duration <- getAlarmDuration
+      _ <- ZIO.sleep(duration)
+      _ <- Console.printLine("Time to wakeup!!!")
+    } yield ()
 }
 
 object ZIOFinally extends ZIOAppDefault {
@@ -227,8 +245,14 @@ object ZIOFinally extends ZIOAppDefault {
    * Using `ZIO#ensuring`, attach an effect to the `tickingBomb`
    * effect, which will be executed whether `tickingBomb` succeeds
    * or fails. Print out a message to the console saying "Executed".
+   *
+   * Why a finalizer cannot fail?
+   * a./ Because your finalizer should be predictable
+   *
+   * What is the difference between `ignore` and `orDie`?
+   * a./ `ignore` means do nothing while `orDie` mean pass the error to non-recoverable channel
    */
-  lazy val tickingBomb2 = tickingBomb
+  lazy val tickingBomb2 = tickingBomb.ensuring(Console.printLine("Executed").orDie)
 
   /**
    * EXERCISE
@@ -243,6 +267,8 @@ object ZIOFinally extends ZIOAppDefault {
 }
 
 object SequentialCause extends ZIOAppDefault {
+  // ZEnvironment[R] => Either[Cause[E], A]
+  // Sequentional errors !== Parallel errors
 
   val failed1 = Cause.fail("Uh oh 1")
   val failed2 = Cause.fail("Uh oh 2")
@@ -253,7 +279,7 @@ object SequentialCause extends ZIOAppDefault {
    * Using `Cause.++`, form a sequential cause by composing `failed1`
    * and `failed2`.
    */
-  lazy val composed = ???
+  lazy val composed = failed1 ++ failed2
 
   /**
    * EXERCISE
@@ -261,7 +287,7 @@ object SequentialCause extends ZIOAppDefault {
    * Using `Cause.prettyPrint`, dump out `composed` to the console.
    */
   val run =
-    ???
+    Console.printLine(composed.prettyPrint)
 }
 
 object ParalellCause extends ZIOAppDefault {
@@ -275,7 +301,7 @@ object ParalellCause extends ZIOAppDefault {
    * Using `Cause.&&`, form a parallel cause by composing `failed1`
    * and `failed2`.
    */
-  lazy val composed = ???
+  lazy val composed = failed1 && failed2
 
   /**
    * EXERCISE
@@ -283,15 +309,21 @@ object ParalellCause extends ZIOAppDefault {
    * Using `Cause.prettyPrint`, dump out `composed` to the console.
    */
   val run =
-    ???
+    Console.printLine(composed.prettyPrint)
 }
 
 object Sandbox extends ZIOAppDefault {
+  // Cause.fail, Cause.die, Cause.interrupt, &&, ++
+  // Sandbox: ZIO[R, E, A] => ZIO[R, Cause[E], A]
+  // effect.exit: ZIO[R, E, A] => ZIO[R, Noting, Exit[E, A]]
+  // You use sandbox at the edge of your system with another system to provide
+  // enough information. Here we are not handle the error. Instead, we are
+  // translate it in a different format.
 
   val failed1    = ZIO.fail("Uh oh 1")
   val failed2    = ZIO.fail("Uh oh 2")
-  val finalizer1 = ZIO.fail(new Exception("Finalizing 1!")).orDie
-  val finalizer2 = ZIO.fail(new Exception("Finalizing 2!")).orDie
+  val finalizer1 = ZIO.die(new Exception("Finalizing 1!"))
+  val finalizer2 = ZIO.die(new Exception("Finalizing 2!"))
 
   val composed = ZIO.uninterruptible {
     (failed1 ensuring finalizer1) zipPar (failed2 ensuring finalizer2)
@@ -303,6 +335,5 @@ object Sandbox extends ZIOAppDefault {
    * Using `ZIO#sandbox`, sandbox the `composed` effect and print out the
    * resulting `Cause` value to the console using `Console.printLine`.
    */
-  val run =
-    ???
+  val run = composed.catchAllCause(cause => Console.printLine(cause) *> ZIO.failCause(cause))
 }

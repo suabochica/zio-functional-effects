@@ -30,6 +30,21 @@ import zio._
  * In this section, you will explore both the ZIO data model itself, as well
  * as the very basic operators used to transform and combine ZIO effects, as
  * well as a few simple ways to build effects.
+ *
+ * What is the difference between ZIO and languages like Python/Java?
+ * - ZIO constructs effects to be run later, Python/Java are procedural.
+ * - ZIO create values which are descriptions of execution rather than statements.
+ *
+ * Why use ZIO?
+ * - It gives the fabric/skeleton to work on namely it gives a way of error handling,
+ * structuring applications, logging etc.
+ * - Provides a framework, you don't need to reinvent the wheel each time
+ * - ZIO allows us to turn statements into values which are much more sensible to reason about.
+ * It also throws in some pretty cool batteries.
+ *
+ * What is the ZIO data type?
+ * - Is a blueprint that given its specified requirements R it can be executed and then it
+ * either runs into an error E or returns a desired value A in case of success.
  */
 
 /**
@@ -289,6 +304,9 @@ object FlatMap extends ZIOAppDefault {
    * a first effect together with a "callback", which can return a second
    * effect that depends on the success value produced by the first effect.
    *
+   * While `zip` simply executes the effects sequentually, `flatMap` allows
+   * you passover values obtained from the first effect to the next one.
+   *
    * Remember that flatMap is a success handler.
    *
    */
@@ -344,7 +362,9 @@ object ForComprehension extends ZIOAppDefault {
   /**
    * EXERCISE
    *
-   * For comprehension is syntactic sugar for flatMap operations.
+   * For comprehension is syntactic sugar for flatMap operations. Allow us to eliminate
+   * `flatMap` nesting making the code readable.
+   *
    * below it is share his structure:
    *
    * for {
@@ -488,9 +508,9 @@ object MultipleSyncInterop extends ZIOAppDefault {
     import scala.concurrent.ExecutionContext.global
 
     def loadBodyAsync(onSuccess: String => Unit, onFailure: Throwable => Unit) : Unit =
-//      global.execute(() =>
-//        if (scala.util.Random.nextDouble() < 0.01) onFailure(java.io.IOException)
-//        else onSuccess("Body of request")
+      global.execute(() =>
+        if (scala.util.Random.nextDouble() < 0.01) onFailure(new java.io.IOException("Could not load the body"))
+        else onSuccess("Body of request")
     )
 
     /**
@@ -501,9 +521,12 @@ object MultipleSyncInterop extends ZIOAppDefault {
      */
 
     lazy val loadBodyAsyncZIO: ZIO[Any, Nothing, String] =
+      ???
+    /*
       ZIO.async[Any, Nothing, String] {
         callback => loadBodyAsync(body => callback(ZIO.succeed(body)), error => callback(ZIO.fail(error)))
       }
+    */
 
     /**
     val run =

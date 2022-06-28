@@ -7,6 +7,24 @@ import java.nio.file.Files
 import java.nio.file.Path
 import scala.io.Source
 
+/**
+ * Put blocking task in a different thread of asynchronous tasks
+ * Schedulers aer util to handle resources in the cores of CPU
+ *
+ * The process of copy information from one thread to another implies
+ * more overhead. More threads is equals to less performance. A guide is
+ * use one thread by core.
+ *
+ * ZIO offer fibers.
+ *
+ * ZIO has two thread pools:
+ * - Blocking tasks thread pool
+ * - Async tasks thread pool
+ *
+ * ZIO 2 is monitoring fibers and is available to identify which ones
+ * are related to blocking tasks
+ */
+
 object Cat extends ZIOAppDefault {
 
   import java.io.IOException
@@ -20,8 +38,13 @@ object Cat extends ZIOAppDefault {
    * blocking thread pool, storing the result into a string. You may find
    * it helpful to use the `getScalaSource` helper method defined above.
    */
-  def readFile(file: String): ZIO[Any, IOException, String] =
-    ???
+  def readFile(file: String): ZIO[Any, IOException, String] = {
+    ZIO.blocking {
+      ZIO.attempt {
+        getScalaSource(file).getLines().mkString("\n")
+      }.refineToOrDie[IOException]
+    }
+  }
 
   /**
    * EXERCISE
@@ -54,7 +77,7 @@ object CatEnsuring extends ZIOAppDefault {
     ZIO.uninterruptible {
       for {
         source   <- open(file)
-        contents <- ZIO.attempt(source.getLines().mkString("\n"))
+        contents <- ZIO.attempt(source.getLines().mkString("\n")).ensuring(ZIO.attempt(source.close()).ignore)
       } yield contents
     }.refineToOrDie[IOException]
 
@@ -71,6 +94,10 @@ object CatEnsuring extends ZIOAppDefault {
 
 object CatAcquireRelease extends ZIOAppDefault {
 
+  /**
+   * Java try-with-resource remove boilerplate.
+   * ZIO has acquireReleaseWith that do something similar
+   */
   import java.io.IOException
   import scala.io.Source
 
@@ -86,7 +113,9 @@ object CatAcquireRelease extends ZIOAppDefault {
    * Using `ZIO#acquireReleaseWith`, implement a safe version of `readFile` that
    * cannot fail to close the file, no matter what happens during reading.
    */
-  def readFile(file: String): ZIO[Any, IOException, String] = ???
+  def readFile(file: String): ZIO[Any, IOException, String] = ZIO.acquireReleaseWith(open(file))(s => close(s).orDie) {
+    source => ZIO.attemptBlockingIO(source.getLines().mkString("\n"))
+  }
 
   val run =
     for {
@@ -106,6 +135,8 @@ object SourceScoped extends ZIOAppDefault {
 
   import scala.io.Source
 
+  ZIO.addFinalizer(ZIO.unit)
+
   final class ZSource private (private val source: Source) {
     def execute[T](f: Source => T): ZIO[Any, IOException, T] =
       ZIO.attemptBlockingIO(f(source))
@@ -117,6 +148,11 @@ object SourceScoped extends ZIOAppDefault {
      *
      * Use the `ZIO.acquireRelease` constructor to make a scoped effect that
      * succeeds with a `ZSource`, whose finalizer will close the opened resource.
+     *
+     * ZIO replace ZManaged, by itself.
+     *
+     * A good practice would be to use AcquireReleaseWith when I have only one file,
+     * and in other cases I use ZIO.scoped
      */
     def make(file: String): ZIO[Scope, IOException, ZSource] = {
       // An effect that acquires the resource:
@@ -127,7 +163,7 @@ object SourceScoped extends ZIOAppDefault {
       val close: ZSource => ZIO[Any, Nothing, Unit] =
         _.execute(_.close()).orDie
 
-      ???
+      ZIO.acquireRelease(open)(close(_))
     }
   }
 
@@ -138,7 +174,29 @@ object SourceScoped extends ZIOAppDefault {
    * which resources are open), read the contents of the specified file into
    * a `String`.
    */
-  def readFile(file: String): ZIO[Any, IOException, String] = ???
+  def readFile(file: String): ZIO[Any, IOException, String] = {
+    ZIO.scoped {
+      for {
+        source <- ZSource.make(file)
+        string <- source.execute(_.getLines().mkString("\n"))
+      } yield string
+    }
+  }
+
+  def concatLinesOfFiles(files: Chunk[String]) : ZIO[Any, IOException, String] =
+    ZIO.scoped {
+      for {
+        sources <- ZIO.foreachPar(files)(file => ZSource.make(file))
+        lines   <- ZIO.foreachPar(sources)(_.execute(_.getLines()))
+        iterable = lines
+          .reduce((l, r) =>
+            l.zip(r)
+              .map {
+                case (line1, line2) => line1 + line2
+              }
+          )
+      } yield iterable.mkString("\n")
+    }
 
   /**
    * EXERCISE
@@ -176,8 +234,10 @@ object CatIncremental extends ZIOAppDefault {
    */
   object FileHandle {
     final def open(file: String): ZIO[Any, IOException, FileHandle] =
-      ZIO.attemptBlockingIO(new FileHandle(new FileInputStream(file)))
-  }
+      val acquire = ZIO.attemptBlockingIO(new FileHandle(new FileInputStream(file))
+      val close = (fh: FileHandle) => fh.close.ignore
+
+      ZIO.acquireRelease(acquire)(close(_))
 
   /**
    * EXERCISE
@@ -186,7 +246,10 @@ object CatIncremental extends ZIOAppDefault {
    * a time, stopping when there are no more chunks left.
    */
   def cat(fh: FileHandle): ZIO[Any, IOException, Unit] =
-    ???
+    fh.read.flatMap {
+      case None => ZIO.unit
+      case Some(chunk) => Console.printLine(new String(chunk.toArray, StandardCharsets.UTF_8)) *> cat(fh)
+    }
 
   /**
    * EXERCISE
@@ -204,7 +267,9 @@ object CatIncremental extends ZIOAppDefault {
          * Open the specified file, safely create and use a file handle to
          * incrementally dump the contents of the file to standard output.
          */
-        ???
+        ZIO.scoped {
+          FileHandle.open(file).flatMap(cat(_))
+        }
 
       case _ => Console.printLine("Usage: cat <file>")
     }
@@ -220,7 +285,14 @@ object AddFinalizer extends ZIOAppDefault {
    * version you implement need not be safe in the presence of interruption,
    * but it should be safe in the presence of errors.
    */
-  def acquireRelease[R, E, A](acquire: ZIO[R, E, A])(release: A => ZIO[R, Nothing, Any]): ZIO[R with Scope, E, A] = ???
+  def acquireRelease[R, E, A](acquire: ZIO[R, E, A])(release: A => ZIO[R, Nothing, Any]): ZIO[R with Scope, E, A] =
+    ZIO.uninterruptible {
+      for {
+        resource  <- acquire
+        _         <- ZIO.addFinalizer(release(resource))
+
+      } yield resource
+    }
 
   val run =
     for {
