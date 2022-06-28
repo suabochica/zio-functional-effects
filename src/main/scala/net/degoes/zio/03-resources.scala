@@ -233,11 +233,13 @@ object CatIncremental extends ZIOAppDefault {
    * HINT: `ZIO.acquireRelease` is the easiest way to do this!
    */
   object FileHandle {
-    final def open(file: String): ZIO[Any, IOException, FileHandle] =
-      val acquire = ZIO.attemptBlockingIO(new FileHandle(new FileInputStream(file))
-      val close = (fh: FileHandle) => fh.close.ignore
+    final def open(file: String): ZIO[Scope, IOException, FileHandle] = {
+      val acquire = ZIO.attemptBlockingIO(new FileHandle(new FileInputStream(file)))
+      val close   = (fh: FileHandle) => fh.close.ignore
 
-      ZIO.acquireRelease(acquire)(close(_))
+      ZIO.acquireRelease(acquire)(close)
+    }
+  }
 
   /**
    * EXERCISE
