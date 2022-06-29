@@ -1,8 +1,32 @@
 package net.degoes.zio
 
 import zio._
+import java.io.IOException
 
 object Retry {
+  // Schedule[-Env, -In, +Out]
+  // - === input
+  // + === output
+
+  // Schedules are use for two things
+  // 1. Retry
+  // 2. Repeat
+
+  // Schedule A: |XXXXXXXX|      |XXXXXXXX|         |XXX|    |XX|
+  // Schedule B:     |XXXX| |XXXXXXXX|         |XXX|     |X|
+  // A isect B :     |XXXX|      |XXX|
+  // A union B : |XXXXXXXX| |XXXXXXXX|         |XXXXXXX| |XXX|
+
+  // Operations:
+  // - intersection
+  // - union
+
+  Schedule.recurs(100)
+  Schedule.exponential(1.second)
+  Schedule.exponential(10.millis)
+  Schedule.hourOfDay(12)
+
+  Schedule.recurs(100).whileInput[Exception](_.isInstanceOf[IOException])
 
   /**
    * EXERCISE

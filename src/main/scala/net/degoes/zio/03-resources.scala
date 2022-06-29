@@ -23,6 +23,11 @@ import scala.io.Source
  *
  * ZIO 2 is monitoring fibers and is available to identify which ones
  * are related to blocking tasks
+ *
+ * `finally` is a way to handle safety the resources in Java.
+ *
+ * `ensuring` combine two effects that given the result of the first one
+ * executes the finalizer in the second one. It is the equivalent to `finally`.
  */
 
 object Cat extends ZIOAppDefault {
@@ -144,6 +149,16 @@ object SourceScoped extends ZIOAppDefault {
   object ZSource {
 
     /**
+     * Modular system
+     *
+     * ZIO have compositional timeouts, making that the APIs focus on its
+     * own task instead of handling timeouts.
+     *
+     * Scopes replace ZManaged. Its a mechanism to check how resources
+     * are allocated.
+     */
+
+    /**
      * EXERCISE
      *
      * Use the `ZIO.acquireRelease` constructor to make a scoped effect that
@@ -233,12 +248,25 @@ object CatIncremental extends ZIOAppDefault {
    * HINT: `ZIO.acquireRelease` is the easiest way to do this!
    */
   object FileHandle {
+
+    final def open(file: String): ZIO[Scope, IOException, FileHandle] = {
+      ZIO.uninterruptible {
+        for {
+          fileHandle  <- ZIO.attemptBlockingIO(new FileHandle(new FileInputStream(file)))
+          _           <- ZIO.addFinalizer(fileHandle.close.orDie)
+
+        } yield fileHandle
+      }
+    }
+
+    /* Implementation with acquireRelease
     final def open(file: String): ZIO[Scope, IOException, FileHandle] = {
       val acquire = ZIO.attemptBlockingIO(new FileHandle(new FileInputStream(file)))
       val close   = (fh: FileHandle) => fh.close.ignore
 
       ZIO.acquireRelease(acquire)(close)
     }
+     */
   }
 
   /**
@@ -270,7 +298,10 @@ object CatIncremental extends ZIOAppDefault {
          * incrementally dump the contents of the file to standard output.
          */
         ZIO.scoped {
-          FileHandle.open(file).flatMap(cat(_))
+          for {
+            fh <- FileHandle.open(file)
+            _ <- cat(fh)
+          } yield ()
         }
 
       case _ => Console.printLine("Usage: cat <file>")

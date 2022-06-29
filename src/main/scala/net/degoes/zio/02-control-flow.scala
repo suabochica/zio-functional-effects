@@ -234,13 +234,16 @@ object TailRecursive extends ZIOAppDefault {
    * recursive.
    *
    * Problem: We have a infinite loop that will exhaust the memory of your machine
-   * Solution: Tail recursion
+   * Solution: Tail recursion to keep stack safety
    *
    * If you are exposed to infinite loops, not use for comprehension
    *
    * Rule:
    * - Use `ref` when
    * - Use `forever` when
+   *
+   * you can use "@tailrec" annotation to indicate to scala compiler
+   * that your method should be tail recursive.
    */
 
   /*
@@ -253,7 +256,7 @@ object TailRecursive extends ZIOAppDefault {
     } yield nothing
   */
 
-  // Alternative using the `forever` ZIO combinator.
+  // Alternative using the `.forever` ZIO combinator.
   lazy val webserver: Task[Nothing] =
     (for {
       request  <- acceptRequest
@@ -272,7 +275,7 @@ object TailRecursive extends ZIOAppDefault {
   )
   */
 
-  // Scala translation (tail recursive)
+  // Scala translation (tail recursive) Remove the final `.map`
   lazy val webserver2: Task[Nothing] =
     acceptRequest.flatMap(request =>
       handleRequest(request).flatMap(response =>

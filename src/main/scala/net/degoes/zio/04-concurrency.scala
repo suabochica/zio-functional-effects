@@ -4,6 +4,10 @@ import zio._
 
 /**
  * Fibers are like threads but faster and lightweight.
+ *
+ * Fibers operations are a similar behavior that git branching actions.
+ *
+ * ZIO.uninterrupt protects you that ZIO kill your effect.
  */
 
 object ForkJoin extends ZIOAppDefault {
@@ -51,6 +55,11 @@ object ForkInterrupt extends ZIOAppDefault {
    * print out a message, "Forked", then using `ZIO.sleep`, sleep for 100
    * milliseconds, then interrupt the fiber using `Fiber#interrupt`, and
    * finally, print out a message "Interrupted".
+   *
+   * fiber.dump: enable diagnosis on the fiber
+   * fiber.join: merge a fiber to another one
+   * fiber.await: picks the result but leaves both fibers separate
+   * fiber.interrupt: interrupt the effect
    */
   val run =
     for {
@@ -107,11 +116,16 @@ object AlarmAppImproved extends ZIOAppDefault {
     val fallback = Console.printLine("You didn't enter a number of seconds!") *> getAlarmDuration
 
     for {
-      _        <- Console.printLine("Please enter the number of seconds to sleep: ")
-      input    <- Console.readLine
+      _ <- Console.printLine("Please enter the number of seconds to sleep: ")
+      input <- Console.readLine
       duration <- parseDuration(input) orElse fallback
     } yield duration
   }
+
+  val infinitePrinter: ZIO[Any, IOException, Nothing] =
+    (Console.print(".") *> ZIO.sleep(1.second)).forever
+
+  val printWakeUp = Console.printLine("Time to wakeup!!!")
 
   /**
    * EXERCISE
@@ -121,27 +135,87 @@ object AlarmAppImproved extends ZIOAppDefault {
    * prints a dot every second that the alarm is sleeping for, and then
    * prints out a wakeup alarm message, like "Time to wakeup!!!".
    */
+
+    // Race solution
+  val runRace = {
+    val printDots = Console.printLine(".").repeat(Schedule.spaced(1.second))
+    val wakeUp = Console.printLine("Time to wakeup!!!")
+    for {
+      d <- getAlarmDuration
+      _ <- printDots.race(ZIO.sleep(d) *> wakeUp)
+    } yield ()
+  }
+
+  // Fiber solution
   val run =
-    ???
+    for {
+      duration  <- getAlarmDuration
+      printer   <- infinitePrinter.fork
+      _         <- ZIO.sleep(duration) *> printer.interrupt *> printWakeUp
+    } yield ()
 }
 
-object ParallelZip extends ZIOAppDefault {
-
+object TimeoutExample extends ZIOAppDefault {
   def fib(n: Int): UIO[Int] =
     if (n <= 1) ZIO.succeed(n)
     else
       ZIO.suspendSucceed {
-        (fib(n - 1) zipWith fib(n - 2))(_ + _)
+        fib(n - 1).zipWith(fib(n - 2))(_ + _)
       }
 
   /**
    * EXERCISE
    *
-   * Compute fib(10) and fib(13) in parallel using `ZIO#zipPar`, and display
-   * the result.
+   * Use `ZIO#timeout` to add a timeout to the following code so that
+   * it doesn't run for more than 10 milliseconds.
+   *
+   * Print out a message if it timed out.
    */
-  val run =
-    ???
+  lazy val run = fib(20).timeout(1.millis).flatMap{
+    case None => Console.printLine("it timed out!")
+    case Some(value) => Console.printLine(s"The fibonacci number is ${value}")
+  }
+}
+
+object RaceExample extends ZIOAppDefault {
+  def loadFromCache: Task[String] =
+    ZIO.succeed("Loaded from cache!").delay(1.second)
+
+  def loadFromDB: Task[String] =
+    ZIO.succeed("Loaded from DB!").delay(500.millis)
+
+  /**
+   * EXERCISE
+   *
+   * Use `ZIO#race` to race the preceding two tasks and print out the
+   * winning success value.
+   *
+   */
+  lazy val run = loadFromCache.race(loadFromDB).flatMap(Console.printLine(_))
+}
+
+object RefExample1 extends ZIOAppDefault {
+
+  def incrementer(ref: Ref[Int], n: Int) : UIO[Unit] = {
+    // bad way: use ref get and set, b/c they are not atomic.
+    ref.update(_ + 1).repeatN(n - 1)
+  }
+
+
+  val run = {
+    for {
+      ref   <- Ref.make(0)
+      _     <- ZIO.foreach(1 to 100){ _ => incrementer(ref, 100).fork}
+      value <- ref.get
+      _     <- Console.printLine(s"Initial reference ${value}")
+      _     <- ref.set(100)
+      value <- ref.get
+      _     <- Console.printLine(s"Second value of reference ${value}")
+      _     <- ref.update(_ + 1)
+      value <- ref.get
+      _     <- Console.printLine(s"Increment value of reference ${value}")
+    } yield ()
+  }
 }
 
 /**
@@ -153,6 +227,7 @@ object RefExample extends ZIOAppDefault {
 
   import zio.Clock._
   import zio.stm._
+
 
   /**
    * Some state to keep track of all points inside a circle,
@@ -222,4 +297,28 @@ object PromiseExample extends ZIOAppDefault {
 
   val run =
     waitForCompute
+}
+
+object FiberRefExample extends ZIOAppDefault {
+  // fiberRef.make(0)
+  // fiberRef.set(100)
+  // fiberRef.get
+  // fiberRef.update(_ + 1)
+
+  def makeChild(ref: FiberRef[Int]) =
+    for {
+      _ <- ref.get.debug("child initial value")
+      _ <- ref.update(_ + 1)
+      _ <- ref.get.debug("child after update")
+    } yield ()
+
+  val run =
+    for {
+      ref   <- FiberRef.make[Int](0, identity(_), _ + _)
+      _     <- ref.get.debug("parent before fork")
+      child <- makeChild(ref).fork
+      _     <- ref.get.debug("parent after fork")
+      _     <- child.join
+      _     <- ref.get.debug("parent after join")
+    } yield ()
 }
