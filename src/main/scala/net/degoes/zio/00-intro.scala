@@ -421,7 +421,7 @@ object ForComprehensionBackward extends ZIOAppDefault {
     for {
       _   <- Console.printLine("How old are you?")
       age <- readInt
-      _ <- if (age < 18) Console.printLine("You are a kid!")
+      _   <- if (age < 18) Console.printLine("You are a kid!")
           else Console.printLine("You are all grown up!")
     } yield ()
 
