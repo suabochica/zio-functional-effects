@@ -60,7 +60,7 @@ object UserEmailExample extends ZIOAppDefault {
     }
 
     // 2. Service implementation
-    val live:ZLayer[Any, Nothing, UserEmailer.Service] = ZLayer.succeed(new Service {
+    val live: ZLayer[Any, Nothing, UserEmailer.Service] = ZLayer.succeed(new Service {
       override def notify(user: User, message: String) =  {
         println(s"[User emailer] Sending '${message} to ${user.email}")
       }
@@ -85,16 +85,22 @@ object UserEmailExample extends ZIOAppDefault {
       })
 
       def insert(user: User): ZIO[UserDatabaseEnv, Throwable, Unit] =
-        ZIO.accessM(_.get.insert(user)) Check the replace of accessM
+        ZIO.accessM(_.get.insert(user)) // TODO: Check the replace of accessM
     }
 
     // Horizontal Composition
     // ----------------------
 
-    // ZLayer[In1, Err1, Out1] ++ ZLayer[In2, Err2, Out2] =>
-    //  ZLayer[In1 with In2, super(Err1, Err2), Out1 with Out2]
+    // One way of combining ZLayers is the so-called “horizontal” composition. In a nutshell:
 
-    // Let's combine UserEmailer with UserDatabase
+    // ZLayer[RIn1, Err1, ROut1] ++ ZLayer[RIn2, Err2, ROut2] =>
+    //  ZLayer[RIn1 with RIn2, super(Err1, Err2), ROut1 with ROut2]
+
+    // Here we can obtain a “bigger” ZLayer which can take as input RIn1 with RIn2, and produce as output ROut1 with
+    // ROut2. If we suggested earlier that RIn is a “dependency”, then this new ZLayer combines (sums) the dependencies
+    // of both ZLayers, and produces a “bigger” output, which can serve as dependency for a later ZLayer.
+
+    // Let's combine UserEmailer with UserDatabase in the horizontal composition userBackendLayer.
 
     import UserDatabase._
     import UserEmailer._
@@ -106,7 +112,8 @@ object UserEmailExample extends ZIOAppDefault {
     // Vertical Composition
     // --------------------
 
-    //
+    // This kind of composition is more akin to regular function composition: the output of one ZLayer is the input of
+    // another ZLayer, and the result becomes a new ZLayer with the input from the first and the output from the second.
 
     object UserSubscription {
       type UserSubscriptionEnv = Has[UserSubscription.Service]
@@ -148,3 +155,8 @@ object UserEmailExample extends ZIOAppDefault {
         .exitCode
   }
 }
+
+// Conclusion
+// ----------
+// We went through an overview of ZIO and we covered the essence of ZLayer, enough to understand what it does and how it
+// can help us build independent services, which we can plug together to create complex applications.
