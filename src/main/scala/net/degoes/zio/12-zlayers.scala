@@ -34,7 +34,8 @@ object Greeting extends ZIOAppDefault {
   val run = greeting
 }
 
-object UserEmailExample extends ZIOAppDefault {
+// object UserEmailExample extends ZIOAppDefault {
+object UserEmailExample {
   /*
     Creating heavy apps involve services:
       - interacting with storage layer
@@ -53,22 +54,26 @@ object UserEmailExample extends ZIOAppDefault {
 
   object UserEmailer {
     type UserEmailerEnv = User with Service
-    // type UserEmailerEnv = Has[User, Service] TODO: Check the Has[] replace
+    // TODO: Check the Has[] replace
+    // type UserEmailerEnv = Has[User, Service]
     // 1. Service definition
     trait Service {
       def notify(user: User, message: String): Task[Unit]
     }
 
     // 2. Service implementation
-    val live: ZLayer[Any, Nothing, UserEmailer.Service] = ZLayer.succeed(new Service {
-      override def notify(user: User, message: String) =  {
-        println(s"[User emailer] Sending '${message} to ${user.email}")
-      }
-    })
+    // val live: ZLayer[Any, Nothing, UserEmailer.Service] = ZLayer.succeed(new Service {
+      ???
+      // override def notify(user: User, message: String) =  {
+      //  println(s"[User emailer] Sending '${message} to ${user.email}")
+      // }
+    //})
 
     // 3. Front-facing API
     def notify(user: User, message:String): ZIO[UserEmailer.Service, Throwable, Unit] =
-      ZIO.accessM(hasService => hasService.get.notify(user, message))
+      // TODO: Check the replace of accessM
+      // ZIO.accessM(hasService => hasService.get.notify(user, message))
+      ???
 
 
     object UserDatabase {
@@ -85,7 +90,9 @@ object UserEmailExample extends ZIOAppDefault {
       })
 
       def insert(user: User): ZIO[UserDatabaseEnv, Throwable, Unit] =
-        ZIO.accessM(_.get.insert(user)) // TODO: Check the replace of accessM
+        // TODO: Check the replace of accessM
+        // ZIO.accessM(_.get.insert(user))
+        ???
     }
 
     // Horizontal Composition
@@ -105,8 +112,10 @@ object UserEmailExample extends ZIOAppDefault {
     import UserDatabase._
     import UserEmailer._
 
-    val userBackendLayer: ZLayer[Any, Nothing, UserDatabaseEnv with UserEmailerEnv] =
-      UserDatabase.live ++ UserEmailer.live
+    val userBackendLayer: ZLayer[Any, Nothing, UserDatabaseEnv with UserEmailerEnv] = {
+      // UserDatabase.live ++ UserEmailer.live
+      ???
+    }
 
 
     // Vertical Composition
@@ -116,7 +125,9 @@ object UserEmailExample extends ZIOAppDefault {
     // another ZLayer, and the result becomes a new ZLayer with the input from the first and the output from the second.
 
     object UserSubscription {
-      type UserSubscriptionEnv = Has[UserSubscription.Service]
+      // TODO: Check the Has[UserSubscription.Service] replace
+      //type UserSubscriptionEnv = Has[UserSubscription.Service]
+
       // 1. Service definition
       class Service(notifier: UserEmailer.Service, userDatabase: UserDatabase.Service) {
         def subscribe(user: User): Task[User] =
@@ -128,13 +139,16 @@ object UserEmailExample extends ZIOAppDefault {
 
 
       // 2. Service implementation
-      val live = ZLayer.fromService[UserEmailer.Service, UserDatabase.Service] {
-        (userEmailer, userDatabase) => new Service(userEmailer, userDatabase)
-      }
+      // TODO: Check the replace of 'fromService'
+      // val live = ZLayer.fromService[UserEmailer.Service, UserDatabase.Service] {
+      //  (userEmailer, userDatabase) => new Service(userEmailer, userDatabase)
+      //}
 
       // 3. Front-facing API
-      def subscribe(user: User): ZIO[UserSubscriptionEnv, Throwable, User] =
-        ZIO.accessM(_.get.subscribe(user))
+      // def subscribe(user: User): ZIO[UserSubscriptionEnv, Throwable, User] =
+        // TODO: Check the replace of accessM
+        //ZIO.accessM(_.get.subscribe(user))
+        ???
 
     }
 
@@ -142,17 +156,19 @@ object UserEmailExample extends ZIOAppDefault {
     val message = "That's no true"
 
     val notifyJim =
-      UserEmailer.notify(jim, message)  // The kind effect
-        .provideLayer(UserEmailer.live) // Provide the input for that effect ... DI
-        .exitCode
+      // UserEmailer.notify(jim, message)  // The kind effect
+      //  .provideLayer(UserEmailer.live) // Provide the input for that effect ... DI
+      //  .exitCode
+      ???
 
     import UserSubscription._
-    val userSubscriptionLayer: ZLayer[Any, Nothing, UserSubscriptionEnv] = userBackendLayer >>> UserSubscription.live
+    // val userSubscriptionLayer: ZLayer[Any, Nothing, UserSubscriptionEnv] = userBackendLayer >>> UserSubscription.live
 
     val run =
-      UserSubscription.subscribe(jim)
-        .provideLayer(userSubscriptionLayer)
-        .exitCode
+      // UserSubscription.subscribe(jim)
+      //  .provideLayer(userSubscriptionLayer)
+      //  .exitCode
+      ???
   }
 }
 
