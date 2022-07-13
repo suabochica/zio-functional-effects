@@ -1,7 +1,5 @@
-package net.degoes.zio
+package zlayer
 
-import net.degoes.zio.UserEmailExample.UserEmailer.UserDatabase.UserDatabaseEnv
-import net.degoes.zio.UserEmailExample.UserEmailer.UserSubscription
 import zio._
 
 import java.text.NumberFormat
