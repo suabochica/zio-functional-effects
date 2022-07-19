@@ -1,6 +1,7 @@
 target
 .bloop
 .metals
+.idea
 
 null
 project/metals.sbt
