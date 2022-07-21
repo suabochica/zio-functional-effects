@@ -1,5 +1,7 @@
 package net.degoes
 
+import net.degoes.parser.Parser.OrElse
+
 /*
  * INTRODUCTION
  *
@@ -71,7 +73,8 @@ object education_executable {
      * Add an operator `+` that appends this quiz to the specified quiz. Model
      * this as pure data using a constructor for Quiz in the companion object.
      */
-    def +(that: Quiz2): Quiz2 = ???
+    def +(that: Quiz2): Quiz2 = Quiz2.Sequence(self, that)
+
 
     /**
      * EXERCISE 2
@@ -79,10 +82,15 @@ object education_executable {
      * Add a unary operator `bonus` that marks this quiz as a bonus quiz. Model
      * this as pure data using a constructor for Quiz in the companion object.
      */
-    def bonus: Quiz2 = ???
+    def bonus: Quiz2 = Quiz2.Bonus(self)
   }
+
   object Quiz2 {
-    def apply[A](question: Question[A]): Quiz2 = ???
+    final case class Single[A](question: Question[A]) extends Quiz2
+    final case class Sequence(first: Quiz2, second: Quiz2) extends Quiz2
+    final case class Bonus(quiz:Quiz2) extends Quiz2
+
+    def apply[A](question: Question[A]): Quiz2 = Single(question)
   }
 
   /**
@@ -92,7 +100,20 @@ object education_executable {
    * the interactive console operations that it describes, returning a
    * QuizResult value.
    */
-  def run(quiz: Quiz2): QuizResult = ???
+  def run(quiz: Quiz2): QuizResult =
+    quiz match {
+      case Single(question) => Quiz(question).run()
+      case Sequence(first, second) => run(first) + run(second)
+      case Bonus(quiz) => run(quiz).toBonus
+    }
+
+  def display(quiz: Quiz2): String =
+    quiz match {
+      case Single(question) => Quiz(question).toString()
+      case Sequence(first, second) => display(first) + "\n" + display(second)
+      case Bonus(quiz) => s"Bonus: ${quiz.bonus}"
+    }
+
 }
 
 /**
@@ -111,7 +132,7 @@ object contact_processing2 {
      * Add a `+` operator that models combining two schema mappings into one,
      * applying the effects of both in sequential order.
      */
-    def +(that: SchemaMapping2): SchemaMapping2 = ???
+    def +(that: SchemaMapping2): SchemaMapping2 = SchemaMapping.Sequence(this, that)
 
     /**
      * EXERCISE 2
@@ -120,16 +141,20 @@ object contact_processing2 {
      * one, applying the effects of the first one, unless it fails, and in that
      * case, applying the effects of the second one.
      */
-    def orElse(that: SchemaMapping2): SchemaMapping2 = ???
+    def orElse(that: SchemaMapping2): SchemaMapping2 = SchemaMapping.orElse(this, that)
   }
   object SchemaMapping2 {
+    final case class Rename(oldName: String, newName: String) extends SchemaMapping2
+    final case class Delete(name: String) extends SchemaMapping2
+    final case class Sequence(first: SchemaMapping2, second: SchemaMapping2) extends SchemaMapping2
+    final case class OrElse(first: SchemaMapping2, second: SchemaMapping2) extends SchemaMapping2
 
     /**
      * EXERCISE 3
      *
      * Add a constructor for `SchemaMapping` models renaming the column name.
      */
-    def rename(oldName: String, newName: String): SchemaMapping2 = ???
+    def rename(oldName: String, newName: String): SchemaMapping2 = Rename(oldName, newName)
 
     /**
      * EXERCISE 4
@@ -137,7 +162,7 @@ object contact_processing2 {
      * Add a constructor for `SchemaMapping` that models deleting the column
      * of the specified name.
      */
-    def delete(name: String): SchemaMapping2 = ???
+    def delete(name: String): SchemaMapping2 = Delete(name)
   }
 
   /**

@@ -61,6 +61,7 @@ object input_stream {
   // Model: A case class containing a factory to create an input stream
   // Constructors: empty, fromFile, fromFTP
   // Operators: ???
+  // The model is executed calling createInputStream
   final case class IStream(createInputStream: () => InputStream) { self =>
 
     /**
@@ -155,6 +156,7 @@ object email_filter {
   final case class Address(emailAddress: String)
   final case class Email(sender: Address, to: List[Address], subject: String, body: String)
 
+  // The matches execute the model
   final case class EmailFilter(matches: Email => Boolean) { self =>
 
     /**
@@ -336,6 +338,7 @@ object contact_processing {
       }
   }
 
+  // We executed the model with map
   final case class SchemaMapping(map: ContactsCSV => MappingResult[ContactsCSV]) { self =>
 
     /**
@@ -584,6 +587,7 @@ object education {
     def empty: QuizResult = QuizResult(0, 0, 0, Vector())
   }
 
+  // The model is executed calling run
   final case class Quiz(run: () => QuizResult) { self =>
 
     /**
