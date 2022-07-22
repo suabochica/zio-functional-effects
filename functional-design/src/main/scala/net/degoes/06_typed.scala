@@ -1,5 +1,7 @@
 package net.degoes
 
+import net.degoes.typed.Cake
+
 /*
  * INTRODUCTION
  *
@@ -48,15 +50,18 @@ object executable_typed {
    *
    * Design a data type called `CalculatedValue[A]`, whose type parameter `A`
    * represents the type of value dynamically computed from the spreadsheet.
+   *
+   * Spreadsheet => Value
    */
-  final case class CalculatedValue[+A]( /* ??? */ ) { self =>
+  final case class CalculatedValue[+A](eval: Spreadsheet => Either[String, A] ) { self =>
 
     /**
      * EXERCISE 2
      *
      * Add an operator that returns a new `CalculatedValue` that is the negated version of this one.
      */
-    def unary_-[A1 >: A](implicit numeric: Numeric[A1]): CalculatedValue[A1] = ???
+    def unary_-[A1 >: A](implicit numeric: Numeric[A1]): CalculatedValue[A1] =
+      CalculatedValue[A1](spreadsheet => self.eval(spreadsheet).map((a: A1) => numeric.negate(a: A1)))
 
     /**
      * EXERCISE 3
@@ -64,7 +69,13 @@ object executable_typed {
      * Add a binary operator `+` that returns a new `CalculatedValue` that is the sum of the two
      * calculated values.
      */
-    def +[A1 >: A](that: CalculatedValue[A1])(implicit numeric: Numeric[A1]): CalculatedValue[A1] = ???
+    def +[A1 >: A](that: CalculatedValue[A1])(implicit numeric: Numeric[A1]): CalculatedValue[A1] =
+      CalculatedValue[A1] { spreadsheet =>
+        for {
+          left <- self.eval(spreadsheet)
+          right <- that.eval(spreadsheet)
+        } yield numeric.plus(left, right)
+      }
 
     /**
      * EXERCISE 4
@@ -72,9 +83,16 @@ object executable_typed {
      * Add a binary operator `-` that returns a new `CalculatedValue` that is the difference of the
      * two calculated values.
      */
-    def -[A1 >: A](that: CalculatedValue[A1])(implicit numeric: Numeric[A1]): CalculatedValue[A1] = ???
+    def -[A1 >: A](that: CalculatedValue[A1])(implicit numeric: Numeric[A1]): CalculatedValue[A1] =
+      CalculatedValue[A1] { spreadsheet =>
+        for {
+          left <- self.eval(spreadsheet)
+          right <- that.eval(spreadsheet)
+        } yield numeric.minus(left, right)
+      }
 
-    protected def binaryOp[A1 >: A](that: CalculatedValue[A1])(error: String)(
+
+  protected def binaryOp[A1 >: A](that: CalculatedValue[A1])(error: String)(
       f: PartialFunction[(A1, A1), A1]
     ): CalculatedValue[A1] = ???
   }
@@ -85,7 +103,8 @@ object executable_typed {
      *
      * Add a constructor that makes an `CalculatedValue` from a `Value`.
      */
-    def const[Value](contents: Value): CalculatedValue[Value] = ???
+    def const[Value](contents: Value): CalculatedValue[Value] =
+      CalculatedValue[Value](spreadsheet => Right(contents))
 
     /**
      * EXERCISE 6
@@ -93,8 +112,15 @@ object executable_typed {
      * Add a constructor that provides access to the value of the
      * specified cell, identified by col/row.
      */
-    def at(col: Int, row: Int): CalculatedValue[Any] = ???
+    def at(col: Int, row: Int): CalculatedValue[Any] =
+      CalculatedValue[Any](spreadsheet => Right(spreadsheet.valueAt(col, row).eval(spreadsheet)))
   }
+
+  val x = CalculatedValue.const(42)
+  val y = CalculatedValue.const(82)
+  val z = CalculatedValue.const("Hello")
+
+  // x + z error at compilation time
 }
 
 /**
@@ -146,7 +172,8 @@ object declarative_typed {
      *
      * Add an operator that returns a new `CalculatedValue` that is the negated version of this one.
      */
-    def unary_-[A1 >: A](implicit numeric: Numeric[A1]): CalculatedValue[A1] = ???
+    def unary_-[A1 >: A](implicit numeric: Numeric[A1]): CalculatedValue[A1] =
+      CalculatedValue[A1] = CalculatedValue.Negate(self, numeric)
 
     /**
      * EXERCISE 3
@@ -154,7 +181,8 @@ object declarative_typed {
      * Add a binary operator `+` that returns a new `CalculatedValue` that is the sum of the two
      * calculated values.
      */
-    def +[A1 >: A](that: CalculatedValue[A1])(implicit numeric: Numeric[A1]): CalculatedValue[A1] = ???
+    def +[A1 >: A](that: CalculatedValue[A1])(implicit numeric: Numeric[A1]): CalculatedValue[A1] =
+      CalculatedValue.Add(self, that, numeric)
 
     /**
      * EXERCISE 4
@@ -162,22 +190,36 @@ object declarative_typed {
      * Add a binary operator `-` that returns a new `CalculatedValue` that is the difference of the
      * two calculated values.
      */
-    def -[A1 >: A](that: CalculatedValue[A1])(implicit numeric: Numeric[A1]): CalculatedValue[A1] = ???
+    def -[A1 >: A](that: CalculatedValue[A1])(implicit numeric: Numeric[A1]): CalculatedValue[A1] =
+    CalculatedValue.Minus(self, that, numeric)
 
     protected def binaryOp[A1 >: A](that: CalculatedValue[A1])(error: String)(
       f: PartialFunction[(A1, A1), A1]
     ): CalculatedValue[A1] = ???
   }
   object CalculatedValue {
-    final case class Integer(value: Int) extends CalculatedValue[Int]
-    final case class Str(value: String)  extends CalculatedValue[String]
+    // execute: CalculatedValue[A] => Either[String, A]
+//    final case class Phantom[A]() extends CalculatedValue[A]
+
+    final case class Fail[A](message: String) extends CalculatedValue[Nothing]
+    final case class Const[A](value: A) extends CalculatedValue[A]
+    // Attended in Const
+    // final case class Integer(value: Int) extends CalculatedValue[Int]
+    // final case class Str(value: String)  extends CalculatedValue[String]
+
+    final case class Negate[A, A1 <: A](value: CalculatedValue[A1], numeric: Numeric[A]) extends CalculatedValue[A]
+
+    final case class Add[A, A1 <: A](left: CalculatedValue[A1], right: CalculatedValue[A1], numeric: Numeric[A])
+    final case class Minus[A, A1 <: A](left: CalculatedValue[A1], right: CalculatedValue[A1], numeric: Numeric[A])
+
+    final case class Both[A, B](left: CalculatedValue[A], right: CalculatedValue[B]) extends CalculatedValue[(A, B)]
 
     /**
      * EXERCISE 5
      *
      * Add a constructor that makes an `CalculatedValue` from a `Value`.
      */
-    def const[Value](contents: Value): CalculatedValue[Value] = ???
+    def const[Value](contents: Value): CalculatedValue[Value] = Const[contents]
 
     /**
      * EXERCISE 6
@@ -192,8 +234,36 @@ object declarative_typed {
 
   def calculate[A](expr: CalculatedValue[A]): A =
     expr match {
-      case Integer(v) => v
-      case Str(v)     => v
+//      case Integer(v) => v
+//      case Str(v)     => v
+      case Const(v)     => Right(v)
+      case Fail(message)     => Left(message)
+//      case Negate(e, numeric) => calculate(e).map((a: A) => numeric.negate(a))
+//      case Negate[A, a1] => calculate(negate.value).map((a1: a1) => negate.numeric.negate(a1))
+//      case Phantom() => ???
+      /*
+      case x if x.getClass == classOf[Phantom[A]] =>
+        val x0 = x.asInstanceOf[Phantom]
+        Left("There is no A inside the phantom")
+      case _ => Left("Impossible")
+     */
+      case add : Add[A, a1] =>
+        for {
+          left <- calculate(add.left)
+          right <- calculate(add.right)
+        } yield add.numeric.plus(left, right)
+
+      case subtract : Minus[A, a1] =>
+        for {
+          left <- calculate(subtract.left)
+          right <- calculate(subtract.right)
+        } yield subtract.numeric.minus(left, right)
+
+      case both : Both[A, a1] =>
+        for {
+          left <- calculate(spreadsheet, left)
+          right <- calculate(spreadsheet, right)
+        } yield (left, right)
     }
 }
 

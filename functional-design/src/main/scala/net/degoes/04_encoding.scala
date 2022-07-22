@@ -397,19 +397,51 @@ object ecommerce_marketing {
     sealed trait HistoryPattern { self =>
       def *>(that: HistoryPattern): HistoryPattern = HistoryPattern.Sequence(self, that)
 
-      def atLeast(n: Int): HistoryPattern = repeat(Some(n), None)
+      //def atLeast(n: Int): HistoryPattern = repeat(Some(n), None)
+      def atLeast(n: Int): HistoryPattern =
+        (0 to Int.MaxValue).foldLeft(!HistoryPattern.matches) {
+          case (acc, index) => acc | self.exactly(index)
+        }
 
-      def atMost(n: Int): HistoryPattern = repeat(None, Some(n))
+      def atMost(n: Int): HistoryPattern =
+        (0 to n).foldLeft(!HistoryPattern.matches) {
+          case (acc, index) => acc | self.exactly(index)
+        } | HistoryPattern.matches
+
+      // def atMost(n: Int): HistoryPattern = repeat(None, Some(n))
 
       def between(min: Int, max: Int): HistoryPattern = repeat(Some(min), Some(max))
 
+      // def exactly(n: Int): HistoryPattern = repeat(Some(n), Some(n))
+      def exactly(n: Int): HistoryPattern =
+        if (n == 0) !self
+        else self *> self.exactly(n -1)
+
+      def | (that: => HistoryPattern): HistoryPattern = ??? // HistoryPattern.Fallback(self, that)
+
       def repeat(min: Option[Int], max: Option[Int]): HistoryPattern = HistoryPattern.Repeat(self, min, max)
+
+      def unary_! : HistoryPattern = ??? // HistoryPattern.Negate(pattern)
     }
     object HistoryPattern {
+      // Subtypes
+      // This is orthogonal, it repeats and is a fallback
       case object Matches                                                                  extends HistoryPattern
+      // This is orthogonal, it repeats and is a fallback
       final case class EventP(eventPattern: EventPattern)                                  extends HistoryPattern
+      // This is orthogonal, it repeats and is a fallback
       final case class Sequence(first: HistoryPattern, second: HistoryPattern)             extends HistoryPattern
+      // This is not orthogonal, it repeats and is a fallback
       final case class Repeat(pattern: HistoryPattern, min: Option[Int], max: Option[Int]) extends HistoryPattern
+      // final case class Negate(pattern: HistoryPattern) extends HistoryPattern
+
+      // This is not orthogonal, it repeats and is a fallback
+      // final case class AtLeast(pattern: HistoryPattern, min: Int) extends HistoryPattern
+
+      // This is not orthogonal, it repeats and is a fallback
+      // final case class Exactly(pattern: HistoryPattern, n: Int) extends HistoryPattern
+
+      // final case class Fallback(left: HistoryPattern, right: Int) extends HistoryPattern
 
       val matches: HistoryPattern = Matches
 

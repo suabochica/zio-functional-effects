@@ -33,6 +33,7 @@ object resources {
 
 /**
  * CALENDER SCHEDULING APP - EXERCISE SET 2
+ * Pure computation
  */
 object calendar {
   final case class HourOfDay(value: Int) {
@@ -178,6 +179,8 @@ object cms {
  * database, but before being stored, they must be validated by flexible
  * rules. If validation fails, descriptive error messages must be generated
  * that allow clients of the JSON endpoint to fix the issues with their data.
+ *
+ * Declarative, expose us to phantom types, then the compiler cannot help us
  */
 object input_validation {
   sealed trait Json {
@@ -217,6 +220,23 @@ object input_validation {
     final case class Index(parent: JsonPath, index: Int)   extends JsonPath
 
     def identity: JsonPath = Identity
+
+    //    $("foo.bar[2].baz")
+    def $(str: String) : JsonPath = ???
+
+  }
+
+  sealed trait JsonType {
+    type Node <: Json
+  }
+
+  object JsonType {
+    case object Null extends JsonType { type Null = Json.Null }
+    case object Bool extends JsonType { type Node = Json.Bool }
+    case object Number extends JsonType { type Node = Json.Number }
+    case object Text extends JsonType { type Node = Json.Text }
+    case object Sequence extends JsonType { type Node = Json.Sequence }
+    case object Object extends JsonType { type Node = Json.Object }
   }
 
   /**
@@ -232,14 +252,18 @@ object input_validation {
    * 8. Verify that an element in an array meets certain requirements.
    * 9. Verify that all elements in an array meet certain requirements.
    */
-  type Validation[+A]
-  object Validation {}
+  sealed trait Validation[-Json,+Output]
+  object Validation {
+    final case class Identity[T](value: T) extends Validation[T, T]
+    final case class Succeed[Output](value: Output) extends Validation[Any, Output]
+    final case class IsJsonType(jsonType: JsonType) extends Validation[Any, Unit]
+  }
 
   /**
    * Implement the `validate` function that can validate some JSON and either
    * return descriptive error messages, or succeed with a unit value.
    */
-  def validate[A](json: Json, validation: Validation[A]): Either[List[String], A] = ???
+  def validate[J <: Json, A](json: J, validation: Validation[J, A]): Either[List[String], A] = ???
 }
 
 /**
