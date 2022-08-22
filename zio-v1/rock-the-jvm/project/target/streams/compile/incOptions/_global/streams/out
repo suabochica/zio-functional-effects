@@ -1,0 +1,2 @@
+[debug] Created transactional ClassFileManager with tempDir = /Users/benitseg/Projects/learning/scala/zio-functional-effects/zio-v1/rock-the-jvm/project/target/scala-2.12/sbt-1.0/classes.bak
+[debug] Removing the temporary directory used for backing up class files: /Users/benitseg/Projects/learning/scala/zio-functional-effects/zio-v1/rock-the-jvm/project/target/scala-2.12/sbt-1.0/classes.bak
