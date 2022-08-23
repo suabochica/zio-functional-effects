@@ -1,4 +1,4 @@
-package com.sua.ch02-first-steps
+package com.sua.chapter02
 
 import zio.ZIO
 
@@ -7,7 +7,7 @@ import zio.ZIO
  * `ZIO.effect` constructor
  */
 
-object e01 {
+object e01_Files {
   def readFile(file: String): String = {
     val source = scala.io.Source.fromFile(file)
 
@@ -18,4 +18,3 @@ object e01 {
   def readFileZio(file: String): ZIO[Any, Throwable, String] =
     ZIO.effect(readFile(file))
 }
-

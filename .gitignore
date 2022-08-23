@@ -1,26 +1,10 @@
-.bloop
-.metals
-.idea
+# Editor setups
+.bsp/
+.bloop/
+.idea/
+.metals/
+.vscode/
 
-project/metals.sbt
-project/project/metals.sbt
-project/project/project/metals.sbt
+# ignore all target/ directories
+target/
 
-**/.bloop
-**/.metals
-**/.vscode
-**/.bsp
-
-./zio-v1/rock-the-jvm/.idea
-./zio-v1/rock-the-jvm/.bsp
-./zio-v1/rock-the-jvm/target
-
-./zio-v1/zio-config/.idea
-./zio-v1/zio-config/.bsp
-./zio-v1/zio-config/target
-
-./zio-v2/functional-effects/.idea
-./zio-v2/functional-effects/target
-
-./zio-v2/functional-design/.idea
-./zio-v2/functional-design/target
