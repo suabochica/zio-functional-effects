@@ -151,7 +151,7 @@ object InterruptibilityRegions extends ZIOSpecDefault {
  * "back-pressured" interruption. Interruption operators do not return
  * until whatever they are interrupting has been successfully interrupted.
  * This behavior minimizes the chance of leaking resources (including fibers),
- * but occassionally it is important to understand the implications of this
+ * but occasionally it is important to understand the implications of this
  * behavior and how to modify the default behavior.
  */
 object Backpressuring extends ZIOSpecDefault {
@@ -212,6 +212,8 @@ object BasicDerived extends ZIOSpecDefault {
        *
        * Using the operators you have learned about so far, reinvent a safe
        * version of `ensuring` in the method `withFinalizer`.
+       *
+       * foldZIO() is not for handle errors
        */
 
       test("ensuring") {
@@ -289,6 +291,16 @@ object BasicDerived extends ZIOSpecDefault {
  * code that is uninterruptible (when it should be interruptible).
  */
 object UninterruptibleMask extends ZIOSpecDefault {
+
+  /*
+  def zipParCustom[R, E, A1, A2](zio1: ZIO[R, E, A1], zio2: ZIO[R, E, A2]): ZIO[R, E, (A1, A2)] =
+    for {
+      a1 <- zio1.fork
+      a2 <- zio2.fork
+      r <- a1.join zipPar a2.join
+    } yield r
+   */
+
   def spec =
     suite("UninterruptibleMask") {
 
@@ -299,11 +311,12 @@ object UninterruptibleMask extends ZIOSpecDefault {
        * `ZIO.uninterruptibleMask`, which restores the parent region
        * status rather than clobbering the child region.
        */
+
       test("overly interruptible") {
         def doWork[A](queue: Queue[A], worker: A => UIO[Any]) =
-          ZIO.uninterruptible {
-            queue.take.flatMap(a => ZIO.interruptible(worker(a)))
-          }
+          ZIO.uninterruptibleMask ( restore =>
+            queue.take.flatMap(a => restore(worker(a)))
+          )
 
         def worker(database: Ref[Chunk[Int]]): Int => UIO[Any] = {
           def fib(n: Int): UIO[Int] =
@@ -323,7 +336,7 @@ object UninterruptibleMask extends ZIOSpecDefault {
           _        <- fiber.interrupt
           data     <- database.get
         } yield assertTrue(data.length == 5)
-      } @@ ignore
+      }
     }
 }
 
@@ -350,8 +363,18 @@ object Graduation extends ZIOSpecDefault {
        * `ensuring`.
        */
       test("ensuring") {
+        /*
         def withFinalizer[R, E, A](zio: ZIO[R, E, A])(finalizer: UIO[Any]): ZIO[R, E, A] =
           zio <* finalizer
+         */
+
+        def withFinalizer[R, E, A](zio: ZIO[R, E, A])(finalizer: UIO[Any]): ZIO[R, E, A] =
+          ZIO.uninterruptibleMask { restore =>
+            restore(zio).foldCauseZIO(
+              cause => finalizer *> ZIO.refailCause(cause),
+              a     => finalizer *> ZIO.succeed(a)
+            )
+          }
 
         for {
           latch   <- Promise.make[Nothing, Unit]
@@ -362,7 +385,7 @@ object Graduation extends ZIOSpecDefault {
           _       <- fiber.interrupt
           v       <- ref.get
         } yield assertTrue(v)
-      } @@ ignore +
+      } +
         /**
          * CHOICE 2
          *
@@ -372,8 +395,13 @@ object Graduation extends ZIOSpecDefault {
         test("acquireRelease") {
           def acquireReleaseWith[R, E, A, B](
             acquire: ZIO[R, E, A]
-          )(release: A => UIO[Any])(use: A => ZIO[R, E, B]): ZIO[R, E, B] =
-            acquire.flatMap(a => use(a) <* release(a))
+          )(release: A => UIO[Any])(use: A => ZIO[R, E, B]): ZIO[R, E, B] = {
+            ZIO.uninterruptibleMask { m =>
+              acquire.flatMap(a => m(use(a)) <* release(a))
+              // TODO: fix compiler errors
+              // acquire.flatMap(a => withFinalizer(m(use(a)))(release(a)))
+            }
+          }
 
           for {
             latch   <- Promise.make[Nothing, Unit]

@@ -10,7 +10,7 @@
  * powerful unit, integration, and system tests that ensure your ZIO
  * applications perform correctly in production.
  */
-package net.zio.testing
+package net.zio
 
 import zio._
 import zio.test.TestAspect._
@@ -278,6 +278,8 @@ object BasicTestAspects extends ZIOSpecDefault {
  * tests individually, or all tests in a suite. This ability is sometimes
  * used for "test fixtures", which allow developers to perform custom
  * setup / tear down operations required for running tests.
+ *
+ * In case that after, before and around won't enough, we can use layers.
  */
 object TestFixtures extends ZIOSpecDefault {
   val beforeRef = new java.util.concurrent.atomic.AtomicInteger(0)
@@ -549,6 +551,14 @@ object CustomLayers extends ZIOSpecDefault {
     }.provideCustomLayer(testUserRepo) // Provide whatever layer you want
 }
 
+/*
+trait UserRepo
+object Example extends ZIOSpec[UserRepo] {
+  val bootstrap: zio.ZLayer[zio.Scope, Any, UserRepo] = ??? // base on reference identity
+  def spec: zio.test.Spec[UserRepo with TestEnvironment with Scope] = ???
+}
+ */
+
 /**
  * GRADUATION PROJECT
  *
@@ -600,6 +610,19 @@ object Graduation extends ZIOSpecDefault {
         }.reduceOption(_ + _).getOrElse(Spec.empty)
     }
    */
+  def dataProvider[A: Tag](as: A*) =
+    new TestAspectAtLeastR[DataProvider[A]] {
+      def some[R <: DataProvider[A], E](spec: Spec[R, E])(implicit trace: Trace): Spec[R, E] =
+        as.map { (a: A) =>
+          spec.provideSomeLayer[R] {
+            ZLayer.succeed[DataProvider[A]] {
+              new DataProvider[A] {
+                def get: UIO[A] = ZIO.succeed(a)
+              }
+            }
+          }
+        }.reduceOption(_ + _).getOrElse(Spec.empty)
+    }
 
   def short =
     new TestAspectAtLeastR[Live] {
@@ -607,14 +630,11 @@ object Graduation extends ZIOSpecDefault {
         spec @@ TestAspect.timeout(500.millis)
     }
 
-  def spec = suite("Graduation")()
-
-  /* TODO: Fix wrong dumber of type parameters
-    test("custom test aspect") {
-      for {
-        data <- DataProvider.get[Int]
-      } yield assertTrue(data > 0)
-    } @@ dataProvider(List[1, 2, 3])
+  def spec = suite("Graduation")(
+      test("custom test aspect") {
+        for {
+          data <- DataProvider.get[Int]
+        } yield assertTrue(data > 0)
+      } @@ dataProvider(1)
     ).provideCustomLayer(DataProvider.none[Int])
-   */
 }

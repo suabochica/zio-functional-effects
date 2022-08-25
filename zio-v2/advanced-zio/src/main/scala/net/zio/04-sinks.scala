@@ -9,7 +9,7 @@
  * are actually implemented by connecting streams to sinks and running the
  * complete pipeline.
  */
-package advancedzio.sinks
+package net.zio.sinks
 
 import zio._
 import zio.stream._
@@ -30,9 +30,9 @@ object Constructors extends ZIOSpecDefault {
         val stream = ZStream(1, 2, 3, 4)
 
         for {
-          size <- stream.runSum
+          size <- stream.run(ZSink.count)
         } yield assertTrue(size.toInt == 4)
-      } @@ ignore +
+      } +
         /**
          * EXERCISE
          *
@@ -43,9 +43,9 @@ object Constructors extends ZIOSpecDefault {
           val stream = ZStream(1, 2, 3, 4)
 
           for {
-            two <- stream.runCollect
+            two <- stream.run(ZSink.take(2))
           } yield assertTrue(two == Chunk(1, 2))
-        } @@ ignore +
+        } +
         /**
          * EXERCISE
          *
@@ -58,10 +58,24 @@ object Constructors extends ZIOSpecDefault {
 
           for {
             ref <- Ref.make(0)
-            _   <- stream.runDrain
+            _   <- stream.run(ZSink.foreach(v => ref.update(_ + v)))
             v   <- ref.get
           } yield assertTrue(v == 10)
-        } @@ ignore +
+        } +
+        /**
+         * EXERCISE
+         *
+         * Replace the call to `.runSum` by a call to `run` using a
+         * sink constructed with `ZSink.foldLeft` that multiplies all
+         * consumed values together (producing their product).
+         */
+        test("sum") {
+          val stream = ZStream(1, 2, 3, 4)
+
+          for {
+            value <- stream.run(ZSink.sum)
+          } yield assertTrue(value == 10)
+        } +
         /**
          * EXERCISE
          *
@@ -73,9 +87,9 @@ object Constructors extends ZIOSpecDefault {
           val stream = ZStream(1, 2, 3, 4)
 
           for {
-            value <- stream.runSum
+            value <- stream.run(ZSink.foldLeft(1)(_ * _))
           } yield assertTrue(value == 24)
-        } @@ ignore
+        }
     }
 }
 
