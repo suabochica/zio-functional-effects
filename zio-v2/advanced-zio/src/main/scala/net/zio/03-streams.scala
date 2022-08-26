@@ -29,6 +29,11 @@ import java.nio.file.FileSystems
  * In this section, you'll explore a few of the common constructors.
  * Channels has inputs
  * Streams  has not inputs
+ *
+ * Data structures in channels:
+ * - ZStream: Generator
+ * - ZSink: Consumer
+ * - Pipeline: Transformer
  */
 object SimpleConstructors extends ZIOSpecDefault {
   def spec =

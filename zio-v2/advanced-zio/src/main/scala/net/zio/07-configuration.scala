@@ -9,14 +9,14 @@
  * In this section, you will explore the runtime system and how to configure
  * ZIO to meet the specialized needs that more complex applications possess.
  */
-package zio.advancedzio.config
+package net.zio.config
 
 import zio._
 import zio.internal.Platform
-
 import zio.test._
 import zio.test.TestAspect._
 
+import java.io.IOException
 import scala.concurrent.ExecutionContext
 import java.util.concurrent.atomic.AtomicReference
 
@@ -51,9 +51,9 @@ object RuntimeSpec extends ZIOSpecDefault {
           } yield integer.get[Int] * 2
 
         val runtime = Runtime(ZEnvironment(19), FiberRefs.empty, RuntimeFlags.default)
-
-        assertTrue(runtime.unsafe.run(effect) == Exit.succeed(42))
-      } @@ ignore +
+        // Fiber.currentFiber()(unsafe)
+        assertTrue(runtime.unsafe.run(effect).getOrThrow() == 42)
+      } +
         /**
          * EXERCISE
          *
@@ -79,11 +79,15 @@ object RuntimeSpec extends ZIOSpecDefault {
 
           val runtime = Runtime(ZEnvironment.empty, FiberRefs.empty, RuntimeFlags.default)
 
-          try runtime.unsafe.run(ZIO.succeed(throw fatalError))
+          try runtime.unsafe.run {
+            ZIO.succeed(throw fatalError).provide {
+              Runtime.setReportFatal(captureFatal(_))
+            }
+          }
           catch { case _: Throwable => () }
 
           assertTrue(fatalRef.get.get == fatalError)
-        } @@ ignore +
+        } +
         /**
          * EXERCISE
          *
@@ -141,10 +145,12 @@ object RuntimeSpec extends ZIOSpecDefault {
 
           val runtime = Runtime(ZEnvironment.empty, FiberRefs.empty, RuntimeFlags.default)
 
-          runtime.unsafe.run(ZIO.yieldNow *> ZIO.unit)
+          runtime.unsafe.run((ZIO.yieldNow *> ZIO.unit).provide {
+            Runtime.setExecutor(executor)
+          })
 
           assertTrue(ranOnEC.get == true)
-        } @@ ignore +
+        } +
         /**
          * EXERCISE
          *
@@ -181,7 +187,9 @@ object RuntimeSpec extends ZIOSpecDefault {
           }
 
           Runtime.default.unsafe.run {
-            ZIO.succeed(throw ioException) // HERE
+            ZIO.succeed(throw ioException).provide{
+              Runtime.addFatal(classOf[IOException])
+            } // HERE
           }
 
           assertTrue(fatalRef.get.get == ioException)
@@ -230,9 +238,12 @@ object RuntimeSpec extends ZIOSpecDefault {
         }
 
         try Runtime.default.unsafe.run {
-          effect // HERE
+          effect.provide {
+            Runtime.addSupervisor(supervisor) ++
+            Runtime.enableOpSupervision
+          }
         } catch { case _: Throwable => () }
 
         assertTrue(succeeded.get)
-      } @@ ignore
+      }
 }

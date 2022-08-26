@@ -8,6 +8,10 @@
  * sink, because values need a place to go. All the run methods of Stream
  * are actually implemented by connecting streams to sinks and running the
  * complete pipeline.
+ *
+ * The sinks can be composed in:
+ * - Parallel
+ * - Sequential
  */
 package net.zio.sinks
 
@@ -110,9 +114,9 @@ object Operators extends ZIOSpecDefault {
         val stream = ZStream(1, 2, 3, 4)
 
         for {
-          value <- stream.runCount
+          value <- stream.run(sink)
         } yield assertTrue(value == 4)
-      } @@ ignore +
+      } +
         /**
          * EXERCISE
          *
@@ -121,14 +125,14 @@ object Operators extends ZIOSpecDefault {
          */
         test("zipPar") {
           def zippedSink: ZSink[Any, Nothing, Int, Nothing, (Long, Int)] =
-            ???
+            ZSink.count.zipPar(ZSink.sum[Int])
 
           val stream = ZStream(1, 2, 3, 4)
 
           for {
             value <- stream.run(zippedSink)
           } yield assertTrue(value == (4L, 10))
-        } @@ ignore +
+        } +
         /**
          * EXERCISE
          *
@@ -137,25 +141,26 @@ object Operators extends ZIOSpecDefault {
          */
         test("zip") {
           def zippedSink: ZSink[Any, Nothing, Int, Int, (Chunk[Int], Chunk[Int])] =
-            ???
+            ZSink.take(3).zip(ZSink.collectAll[Int])
 
           val stream = ZStream(1, 2, 3, 4)
 
           for {
             value <- stream.run(zippedSink)
           } yield assertTrue(value == (Chunk(1, 2, 3), Chunk(4)))
-        } @@ ignore +
+        }  +
         /**
          * EXERCISE
          *
          * Use `ZSink.take` and `ZSink.collectAll` in the provided `for`
          * comprehension to make the test pass.
+         * @rob looks handy for parsing
          */
         test("flatMap") {
           val sink =
             for {
-              two       <- ZSink.collectAll[Int]
-              three     <- ZSink.collectAll[Int]
+              two       <- ZSink.take[Int](2)
+              three     <- ZSink.take[Int](3)
               remainder <- ZSink.collectAll[Int]
             } yield (two, three, remainder)
 
@@ -164,7 +169,7 @@ object Operators extends ZIOSpecDefault {
           for {
             chunks <- stream.run(sink)
           } yield assertTrue(chunks == (Chunk(1, 2), Chunk(3, 4, 5), Chunk(6)))
-        } @@ ignore
+        }
     }
 }
 
@@ -185,13 +190,19 @@ object Graduation extends ZIOSpecDefault {
     def create[A](topic: String): Task[PersistentQueue[A]]
   }
 
-  def persistentQueue[A](topic: String): ZSink[PersistentQueueFactory, Throwable, A, Nothing, Unit] =
-    ???
+  def persistentQueue[A](topic: String): ZSink[PersistentQueueFactory, Throwable, A, Nothing, Unit] = {
+    (for {
+      queueFactory  <- ZSink.service[PersistentQueueFactory]
+      queue         <- ZSink.fromZIO(queueFactory.create(topic))
+      _             <- ZSink.foreach(queue.append(_)).channel.ensuring(queue.shutdown.orDie).toSink[A, Nothing]
+    } yield ())
+    // Adding ensuring to ZSink
+  }
 
   def spec =
     suite("Graduation") {
       test("persistentQueue") {
         assertTrue(false)
-      } @@ ignore
+      }
     }
 }

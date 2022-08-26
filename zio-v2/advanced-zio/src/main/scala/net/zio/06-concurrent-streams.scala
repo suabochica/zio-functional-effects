@@ -4,7 +4,7 @@
  * construct highly concurrent streams with minimal latency and high
  * parallelism.
  */
-package advancedzio.concurrentstreams
+package net.zio.concurrentstreams
 
 import zio._
 
@@ -75,9 +75,9 @@ object ConcurrencyOps extends ZIOSpecDefault {
             promise <- Promise.make[Nothing, Unit]
             _       <- makeStream(ref).interruptWhen(promise).ensuring(done.succeed(())).runDrain.forkDaemon
             _       <- (ref.get <* ZIO.yieldNow).repeatUntil(_ > 0)
-            result  <- done.await.disconnect.timeout(1.second)
+            result  <- promise.succeed(()) *> done.await.disconnect.timeout(1.second)
           } yield assertTrue(result.isDefined))
-        } @@ ignore +
+        } +
         /**
          * EXERCISE
          *
@@ -88,14 +88,17 @@ object ConcurrencyOps extends ZIOSpecDefault {
           val stream2 = ZStream("2").forever
 
           for {
-            values <- stream1.take(10).runCollect
+            values <- stream1.merge(stream2).take(10).runCollect
           } yield assertTrue(values.contains("1") && values.contains("2"))
-        } @@ flaky @@ ignore +
+        } @@ flaky +
         /**
          * EXERCISE
          *
          * Use `broadcast` to send one stream to 10 consumers, each of which is
          * created with the provided `consumer` function.
+         *
+         * Q. What is the difference between use foreach in 10 streams and use broadcast?
+         * A. In broadcast the effects of the stream only happen once.
          */
         test("broadcast") {
           val stream = ZStream(1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
@@ -105,9 +108,16 @@ object ConcurrencyOps extends ZIOSpecDefault {
 
           for {
             ref <- Ref.make(0)
+            _ <-
+              ZIO.scoped {
+                for {
+                  streams <- stream.broadcast(10, 100)
+                  _ <- ZIO.foreach(streams)(substream => consumer(ref, substream))
+                } yield ()
+              }
             v   <- ref.get
           } yield assertTrue(v == 100)
-        } @@ ignore +
+        } +
         /**
          * EXERCISE
          *
@@ -115,14 +125,20 @@ object ConcurrencyOps extends ZIOSpecDefault {
          * `ZSink.foldUntil` that sums up every pair of elements.
          */
         test("aggregateAsync(foldUntil(...))") {
-          val stream = ZStream(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+          // val stream = ZStream(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+          val stream = ZStream(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
 
-          def sink: ZSink[Any, Nothing, Int, Nothing, Int] = ???
+          // stream.aggregateAsync(ZSink.foldUntil(0, 2)(_ + _))
+          // Batching
+          // stream.aggregateAsync(ZSink.foldUntil[Int, Chunk[Int]](Chunk.empty, 10)((s, a) => s ++ Chunk(a)))
+
+          def sink: ZSink[Any, Nothing, Int, Int, Int] =
+            ZSink.foldUntil[Int, Int](0, 2)(_ + _)
 
           for {
             values <- stream.aggregateAsync(sink).runCollect
           } yield assertTrue(values == Chunk(1, 5, 9, 13, 17))
-        } @@ ignore +
+        } +
         /**
          * EXERCISE
          *
@@ -133,14 +149,15 @@ object ConcurrencyOps extends ZIOSpecDefault {
         test("aggregateAsync(foldWeighted(...))") {
           val stream = ZStream(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
 
-          def sink: ZSink[Any, Nothing, Int, Nothing, Chunk[Int]] =
-            ???
+          def sink: ZSink[Any, Nothing, Int, Int, Chunk[Int]] =
+            ZSink.foldWeighted[Int, Chunk[Int]](Chunk.empty)((chunk, _) =>
+              chunk.length,2)((chunk, i) => chunk :+ i)
 
           for {
             values <- stream.aggregateAsync(sink).runCollect
           } yield
             assertTrue(values == Chunk(Chunk(0, 1), Chunk(2, 3), Chunk(4, 5), Chunk(6, 7), Chunk(8, 9), Chunk(10)))
-        } @@ ignore +
+        } +
         /**
          * EXERCISE
          *
@@ -157,6 +174,6 @@ object ConcurrencyOps extends ZIOSpecDefault {
               values <- stream.aggregateAsyncWithin(sink, Schedule.fixed(5.millis)).runCollect
             } yield assertTrue(values == Chunk(Chunk(0, 1, 2, 3), Chunk(4, 5, 6, 7), Chunk(8, 9, 10)))
           }
-        } @@ flaky @@ ignore
+        } @@ flaky
     }
 }
