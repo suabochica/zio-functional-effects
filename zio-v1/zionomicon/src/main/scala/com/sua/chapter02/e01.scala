@@ -1,5 +1,6 @@
 package com.sua.chapter02
 
+import scala.io.Source
 import zio.ZIO
 
 /**
@@ -8,8 +9,8 @@ import zio.ZIO
  */
 
 object e01_Files {
-  def readFile(file: String): String = {
-    val source = scala.io.Source.fromFile(file)
+  def readFile(filePath: String): String = {
+    val source = Source.fromFile(filePath)
 
     try source.getLines.mkString
     finally source.close()
