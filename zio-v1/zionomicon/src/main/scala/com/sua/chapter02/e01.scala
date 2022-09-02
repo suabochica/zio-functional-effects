@@ -16,6 +16,6 @@ object e01_Files {
     finally source.close()
   }
 
-  def readFileZio(file: String): ZIO[Any, Throwable, String] =
-    ZIO.effect(readFile(file))
+  def readFileZio(filePath: String): ZIO[Any, Throwable, String] =
+    ZIO.effect(readFile(filePath))
 }
