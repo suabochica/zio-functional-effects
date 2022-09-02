@@ -1,4 +1,5 @@
-ThisBuild / scalaVersion := "2.13.4"
+scalaVersion := "2.13.4"
+organization := "com.sua"
 
 val zioVersion = "1.0.4-2"
 
