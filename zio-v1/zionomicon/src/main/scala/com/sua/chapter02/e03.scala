@@ -9,8 +9,8 @@ import zio.ZIO
  */
 
 object e03 {
-  import e01._
-  import e02._
+  import e01Files.{readFile, readFileZio}
+  import e02Files.{writeFile, writeFileZio}
 
   def copyFile(source: String, destiny: String): Unit = {
     val contents = readFile(source)

@@ -1,16 +1,25 @@
 package com.sua.chapter02
 
-import zio._
-import zio.test.{ DefaultRunnableSpec , ZSpec}
+import e01Files.{readFile, readFileZio}
+import zio.test.{DefaultRunnableSpec, assert, assertM, testM}
+import zio.test.Assertion.equalTo
 
-import e01_Files.readFileZio
 
-object e01_Files_Spec extends DefaultRunnableSpec {
-
-  override def spec: ZSpec[Environment, Failure] = {
+object e01FilesSpec extends DefaultRunnableSpec {
+  val testFileTxt: String = "hi\nbye"
+  val testFilePath: String = getClass.getResource("/testFile.txt").getPath
+   def spec = {
     suite("Exercise 01 - File Specs")(
-      testM("readFileZio") {
-        ???
+      test("read file succeeds") {
+        val result = readFile(testFilePath)
+
+        assert(result)(equalTo(testFileTxt))
+      },
+
+      testM("read file in ZIO effect") {
+        for {
+          result <- readFileZio(testFilePath)
+        } yield assert(result)(equalTo(testFileTxt))
       }
     )
   }

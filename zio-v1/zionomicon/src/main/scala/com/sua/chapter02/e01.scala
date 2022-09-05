@@ -8,11 +8,11 @@ import zio.ZIO
  * `ZIO.effect` constructor
  */
 
-object e01_Files {
+object e01Files {
   def readFile(filePath: String): String = {
     val source = Source.fromFile(filePath)
 
-    try source.getLines.mkString
+    try source.getLines.mkString("\n")
     finally source.close()
   }
 

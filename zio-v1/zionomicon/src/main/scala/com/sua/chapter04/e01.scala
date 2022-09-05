@@ -1,4 +1,4 @@
-package com.sua.ch04-error-model
+package com.sua.chapter04
 
 import zio.ZIO
 
