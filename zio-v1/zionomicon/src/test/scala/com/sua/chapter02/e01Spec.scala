@@ -9,7 +9,7 @@ object e01FilesSpec extends DefaultRunnableSpec {
   val testFileTxt: String = "hi\nbye"
   val testFilePath: String = getClass.getResource("/testFile.txt").getPath
    def spec = {
-    suite("Exercise 01 - File Specs")(
+    suite("File Specs - Exercise 01")(
       test("read file succeeds") {
         val result = readFile(testFilePath)
 

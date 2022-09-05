@@ -7,7 +7,7 @@ import zio.test.Assertion.equalTo
 
 object e01IntialTestSpec extends DefaultRunnableSpec {
   def spec =
-    suite("Exercise 01 - Initial Test Spec") (
+    suite("Initial Test Spec - Exercise 02") (
       test("introduce someone") {
         val result = introduceSomeone("Jim")
 
