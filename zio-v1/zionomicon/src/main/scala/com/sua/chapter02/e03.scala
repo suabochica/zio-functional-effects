@@ -8,14 +8,14 @@ import zio.ZIO
  *  the function copyFile.
  */
 
-object e03 {
+object e03Files {
   import e01Files.{readFile, readFileZio}
   import e02Files.{writeFile, writeFileZio}
 
   def copyFile(source: String, destiny: String): Unit = {
     val contents = readFile(source)
 
-    writeFile(destiny, source)
+    writeFile(destiny, contents)
   }
 
   def copyFileZio(source: String, destiny: String): ZIO[Any, Throwable, Unit] =
