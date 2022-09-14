@@ -8,7 +8,7 @@ import zio.ZIO
  * Implement a ZIO versio of the function writheFile by using ZIO.effect constructor
  */
 
-object e02Files {
+object e02WriteFile {
   def writeFile(filePath: String, text: String): Unit = {
     val printWriter = new PrintWriter(new File(filePath))
 

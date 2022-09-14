@@ -8,7 +8,7 @@ import zio.ZIO
  * `ZIO.effect` constructor
  */
 
-object e01Files {
+object e01ReadFile {
   def readFile(filePath: String): String = {
     val source = Source.fromFile(filePath)
 

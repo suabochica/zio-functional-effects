@@ -1,12 +1,12 @@
-package com .sua.chapter02
+package com.sua.chapter02
 
-import e03Files.{copyFile}
+import e03CopyFile.copyFile
 
-import zio.test.{assert,DefaultRunnableSpec}
+import zio.test.{assert, DefaultRunnableSpec}
 import zio.test.Assertion.equalTo
 
-object e03FilesSpec extends DefaultRunnableSpec{
-  val testSourcePath: String = getClass.getResource("/testFile.txt").getPath
+object e03CopyFileSpec extends DefaultRunnableSpec {
+  val testSourcePath: String  = getClass.getResource("/testFile.txt").getPath
   val testDestinyPath: String = "./testDestinyPath"
 
   def spec = {
@@ -15,7 +15,7 @@ object e03FilesSpec extends DefaultRunnableSpec{
         val result: Unit = copyFile(testSourcePath, testDestinyPath)
 
         assert(result)(equalTo())
-      }
+      },
     )
   }
 }

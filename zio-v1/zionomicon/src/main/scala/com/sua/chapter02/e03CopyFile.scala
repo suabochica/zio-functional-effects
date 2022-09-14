@@ -2,15 +2,14 @@ package com.sua.chapter02
 
 import zio.ZIO
 
-/**
- * Using the flatMap method of ZIO effects, together with the readFileZio
- *  and writeFileZio functions that you wrote, implement a ZIO version of
- *  the function copyFile.
- */
+/** Using the flatMap method of ZIO effects, together with the readFileZio and
+  * writeFileZio functions that you wrote, implement a ZIO version of the
+  * function copyFile.
+  */
 
-object e03Files {
-  import e01Files.{readFile, readFileZio}
-  import e02Files.{writeFile, writeFileZio}
+object e03CopyFile {
+  import e01ReadFile.{readFile, readFileZio}
+  import e02WriteFile.{writeFile, writeFileZio}
 
   def copyFile(source: String, destiny: String): Unit = {
     val contents = readFile(source)

@@ -4,9 +4,8 @@ import zio.{Task, ZIO}
 
 import scala.io.StdIn.readLine
 
-/**
- * Rewrite the following ZIO code that uses flatMap into a for comprehension
- */
+/** Rewrite the following ZIO code that uses flatMap into a for comprehension
+  */
 
 object e04FlatMap {
   def printLine(line: String): Task[Unit] = ZIO.effect(println(line))
@@ -14,9 +13,7 @@ object e04FlatMap {
   val readLineZio: Task[String] = ZIO.effect(readLine)
 
   printLine("What is your name?")
-    .flatMap(
-      _ => readLineZio.flatMap(name => printLine(s"Hello ${name}"))
-    )
+    .flatMap(_ => readLineZio.flatMap(name => printLine(s"Hello $name")))
 }
 
 object e04FlatMapOperator {
@@ -24,7 +21,9 @@ object e04FlatMapOperator {
 
   val readLineZio: Task[String] = ZIO.effect(readLine)
 
-  printLine("What is your name?") *> readLineZio.flatMap(name => printLine(s"Hello ${name}"))
+  printLine("What is your name?") *> readLineZio.flatMap(name =>
+    printLine(s"Hello $name"),
+  )
 }
 
 object e04ForComprehension {
@@ -33,8 +32,8 @@ object e04ForComprehension {
   val readLineZio: Task[String] = ZIO.effect(readLine)
 
   for {
-    _     <- printLine("What is your name?")
-    name  <- readLineZio
-    _     <- printLine(s"Hello, ${name}!")
+    _    <- printLine("What is your name?")
+    name <- readLineZio
+    _    <- printLine(s"Hello, $name!")
   } yield ()
 }

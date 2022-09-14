@@ -3,7 +3,7 @@ package com.sua.chapter02
 import zio.test.Assertion.equalTo
 import zio.test.{DefaultRunnableSpec, assert}
 
-object e04ForComprehensionSpec extends DefaultRunnableSpec {
+object e04FlatMapSpec extends DefaultRunnableSpec {
 
   def spec = {
     suite("For Comprehension - Exercise 04")(

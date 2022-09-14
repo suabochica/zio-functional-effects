@@ -3,7 +3,7 @@ package com.sua.chapter02
 import zio.test.Assertion.equalTo
 import zio.test.{assert, DefaultRunnableSpec}
 
-object e07CollectAll extends DefaultRunnableSpec {
+object e07CollectAllSpec extends DefaultRunnableSpec {
   def spec = {
     suite("Collect All - Exercise 07")(
       test(
