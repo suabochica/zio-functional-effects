@@ -6,17 +6,11 @@ package com.sua.chapter02
   */
 
 object e08ForEach {
-  final case class ToyZIO[-R, +E, +A](run: R => Either[E, A])
+  import e06ZipWith.ToyZIO
+  import e07CollectAll.collectAll
 
   def foreach[R, E, A, B](
       input: Iterable[A],
-  )(f: A => ToyZIO[R, E, B]): ToyZIO[R, E, List[B]] = {
-
-    def foreachR(
-        input: Iterable[A],
-        accumulator: Either[E, List[B]],
-        environment: R,
-    ): Either[E, List[B]] =
-      ???
-  }
+  )(f: A => ToyZIO[R, E, B]): ToyZIO[R, E, List[B]] =
+    collectAll(input.map(f))
 }

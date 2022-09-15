@@ -4,8 +4,8 @@ import e05ForComprehension.printLine
 
 import zio.console
 
-import zio.test.Assertion.{equalTo}
-import zio.test.{DefaultRunnableSpec, assert, assertM}
+import zio.test.Assertion.equalTo
+import zio.test.{assert, assertM, DefaultRunnableSpec}
 import zio.test.environment.TestConsole
 
 // TODO: Fix type mismatch
@@ -17,11 +17,11 @@ object e05ForComprehensionSpec extends DefaultRunnableSpec {
         val expected = Vector("hello\n", "goodbye\n")
 
         for {
-          _ <- console.putStrLn("hello")
-          _ <- console.putStrLn("goodbye")
+          _      <- console.putStrLn("hello")
+          _      <- console.putStrLn("goodbye")
           output <- TestConsole.output
         } yield assert(output)(equalTo(expected))
-      }
+      },
     )
   }
 }

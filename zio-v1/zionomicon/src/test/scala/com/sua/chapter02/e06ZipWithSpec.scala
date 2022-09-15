@@ -11,7 +11,7 @@ object e06ZipWithSpec extends DefaultRunnableSpec {
 
         for {
           _ <- ???
-        } yield assert(zipUnit)(equalTo(expected)
+        } yield assert(zipUnit)(equalTo(expected))
       },
     )
   }
