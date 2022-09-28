@@ -1,0 +1,24 @@
+package com.sua.chapter02
+
+import zio.ZIO
+
+/** Using `ZIO.async`, convert the following asynchronous, callback-based
+  * function into a ZIO function:
+  */
+object e14GetCacheValue {
+  def getCacheValue(
+      key: String,
+      onSuccess: String => Unit,
+      onFailure: Throwable => Unit,
+  ): Unit =
+    ???
+
+  def getCacheValueZio(key: String): ZIO[Any, Throwable, String] =
+    ZIO.async { callback =>
+      getCacheValue(
+        key,
+        success => callback(ZIO.succeeed(success)),
+        fail => callback(ZIO.fail(failure)),
+      )
+    }
+}
