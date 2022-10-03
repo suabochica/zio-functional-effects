@@ -14,11 +14,11 @@ object e14GetCacheValue {
     ???
 
   def getCacheValueZio(key: String): ZIO[Any, Throwable, String] =
-    ZIO.async { callback =>
+    ZIO.effectAsync { callback =>
       getCacheValue(
         key,
-        success => callback(ZIO.succeeed(success)),
-        fail => callback(ZIO.fail(failure)),
+        success => callback(ZIO.succeed(success)),
+        failure => callback(ZIO.fail(failure)),
       )
     }
 }

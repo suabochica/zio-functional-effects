@@ -1,6 +1,7 @@
 package com.sua.chapter02
 
-import zio.{Chunk, ZIO, ZIOAppArgs, ZIOAppDefault}
+import zio.console.Console
+import zio.{App, ExitCode, URIO, ZIO}
 
 /** Using the following code as a foundation, write a ZIO application that
   * prints out the contents of whatever files are passed into the program as
@@ -8,20 +9,21 @@ import zio.{Chunk, ZIO, ZIOAppArgs, ZIOAppDefault}
   * developed in these exercises, as well as `ZIO.foreach`.
   */
 object e10Cat {
-  import java.io.IOException
   import e01ReadFile.readFileZio
   import e05ForComprehension.printLine
 
-  // TODO: Fix error on ZIOAppDefault
-  object Cat extends ZIOAppDefault {
+  object Cat extends App {
 
-    val run =
-      for {
-        args <- ZIOAppArgs.getArgs // TODO: Fix error on ZIOAppArgs
-        _ <- cat(args)
-      } yield Unit
+    def run(
+        commandLineArguments: List[String],
+    ): URIO[Any with Console, ExitCode] =
+      cat(commandLineArguments).exitCode
 
-    def cat(files: Chunk[String]): ZIO[Any, IOException, Unit] =
-      ZIO.foreach(files)(file => readFileZio(file).flatMap(printLine))
+    def cat(
+        commandLineArguments: List[String],
+    ): ZIO[Any, Throwable, List[Unit]] =
+      ZIO.foreach(commandLineArguments)(file =>
+        readFileZio(file).flatMap(printLine),
+      )
   }
 }

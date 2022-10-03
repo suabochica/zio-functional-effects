@@ -13,12 +13,11 @@ object e15SaveUserRecord {
     ???
 
   def saveUserRecordZIO(user: User): ZIO[Any, Throwable, Unit] =
-    ZIO.async { callback =>
+    ZIO.effectAsync { callback =>
       saveUserRecord(
         user,
         () => callback(ZIO.succeed(())),
         failure => callback(ZIO.fail(failure)),
       )
-
     }
 }

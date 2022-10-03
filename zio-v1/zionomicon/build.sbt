@@ -7,9 +7,9 @@ lazy val root = (project in file("."))
   .settings(
     name := "zionomicon",
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio" % zioVersion,
-      "dev.zio" %% "zio-test" % zioVersion,
-      "dev.zio" %% "zio-test-sbt" % zioVersion
+      "dev.zio" %% "zio"          % zioVersion,
+      "dev.zio" %% "zio-test"     % zioVersion,
+      "dev.zio" %% "zio-test-sbt" % zioVersion,
     ),
-    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
   )
