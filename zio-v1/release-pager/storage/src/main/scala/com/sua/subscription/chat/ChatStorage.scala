@@ -1,5 +1,11 @@
 package com.sua.subscription.chat
 
+// imports from domain
+import com.sua.client.telegram.ChatId
+import com.sua.subscription.Remository.Name
+
+import zio.{ Has, ZIO, ZLayer }
+
 object ChatStorage {
   type ChatStorage = Has[Service]
   type SubscriptionMap = Map[ChatId, Set[Name]]
@@ -11,7 +17,10 @@ object ChatStorage {
     def listSubscribers(name: Name): Task[Set[ChatId]]
   }
 
-  val inMemory: ZLayer[Has[Ref[SubscriptionMap]], Nothing, Has[Service]] = ???
+  val inMemory: ZLayer[Has[Ref[SubscriptionMap]], Nothing, Has[Service]] =
+    ZLayer.fromService[Ref[SubscriptionMap], Service] { subscriptions =>
+      InMemory(subscriptions)
+    }
 
   val doobie: ZLayer[Has[Transactor[Task]], Nothing, Has[Service]] = ???
 }

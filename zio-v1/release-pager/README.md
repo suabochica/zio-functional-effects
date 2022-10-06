@@ -96,6 +96,33 @@ We already have defined one separation axis - technical layers. These layers are
 // - io.pager.repository
 ```
 
+## ZIO
+
+Note we use the word **storage** for services that are responsible for saving our data. This name is a quite abstract and does not imply any implementation details. As an example, let's see the `ChatStorage` module:
+
+```scala
+object ChatStorage {
+  type ChatStorage = Has[Service] // [1]
+
+  trait Service {
+    def subscribe(chatId: ChatId, name: Name): Task[Unit] // [2]
+    def unsubscribe(chatId: ChatId, name: Name): Task[Unit] // [3]
+    def listSubscriptions(chatId: ChatId): Task[Set[Name]] // [4]
+    def listSubscribers(name: Name): Task[Set[ChatId]] // [5]
+  }
+}
+```
+
+This is the definitions of the storage logic:
+
+1. A type alias to describe a layer dependency. It will be usd later in layer construction
+2. Add a new subscriber to a repository
+3. Remove a subscriber to a repository
+4. List all subscriptions for a specific chat
+5. list all the subscribers for a specific repository
+
+This is how our interfaces/algebras will look.
+
 ## 🔆 Reference
 
 - [Designing your first multi-billion startup](https://scala.monster/design-a-pager/) by Pavels Sisojevs
