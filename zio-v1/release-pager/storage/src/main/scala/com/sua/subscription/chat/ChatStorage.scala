@@ -1,10 +1,8 @@
 package com.sua.subscription.chat
 
 // imports from domain
-import com.sua.subscription.Repository.Name
-
-// imports from service
 import com.sua.client.telegram.ChatId
+import com.sua.subscription.Repository.Name
 
 // imports from external libraries
 import doobie.util.transactor.Transactor

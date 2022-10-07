@@ -1,6 +1,7 @@
 package com.sua
 
 // imports from domain
+import com.sua.client.telegram.ChatId
 import com.sua.subscription.Repository.{ Name, Version }
 import com.sua.Config.DataBaseConfig
 import com.sua.PagerError.{ ConfigurationError, MissingBotTokenError }
@@ -11,7 +12,6 @@ import com.sua.subscription.chat.ChatStorage
 
 // imports from service
 import com.sua.log.Logger
-import com.sua.client.telegram.ChatId
 import com.sua.subscription.SubscriptionLogic
 
 // imports from external libraries

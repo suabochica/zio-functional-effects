@@ -1,6 +1,7 @@
 package com.sua.subscription
 
 // imports from domain
+import com.sua.client.telegram.ChatId
 import com.sua.subscription.Repository.{ Name, Version }
 
 // imports from storage
@@ -8,7 +9,6 @@ import com.sua.subscription.chat.ChatStorage
 import com.sua.subscription.repository.RepositoryVersionStorage
 
 // imports from service
-import com.sua.client.telegram.ChatId
 import com.sua.log.Logger
 
 // imports from external libraries
