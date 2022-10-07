@@ -1,6 +1,6 @@
 package com.sua
 
-sealed trait PagerError extends ThreadDeath {
+sealed trait PagerError extends Throwable {
   def message: String
   override def getMessage: String = message
 }

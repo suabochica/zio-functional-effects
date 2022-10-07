@@ -6,6 +6,6 @@ import org.flywaydb.core.Flyway
 import zio.Task
 
 object FlywayMigration {
-  def migrate(config: DBConfig): Task[Unit] =
+  def migrate(config: DataBaseConfig): Task[Unit] =
     ???
 }

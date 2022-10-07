@@ -6,14 +6,17 @@ import com.sua.subscription.Repository.{ Name, Version }
 
 // Imports from storage
 import com.sua.subscription.chat.ChatStorage
-import com.sua.subscription.chat.RepositoryVersionStorage
+import com.sua.subscription.chat.ChatStorage.ChatStorage
+import com.sua.subscription.repository.RepositoryVersionStorage
+import com.sua.subscription.repository.RepositoryVersionStorage.RepositoryVersionStorage
 
 // Imports from services
 import com.sua.log.Logger
+import com.sua.log.Logger.Logger
 
-import zio.{ Has, URLayer, ZIO, ZLayer }
+import zio.{ Has, Task, URLayer, ZLayer }
 
-object Subscription {
+object SubscriptionLogic {
   type Subscription = Has[Service]
 
   trait Service {
@@ -27,13 +30,12 @@ object Subscription {
   type LiveDependencies = Logger with ChatStorage with RepositoryVersionStorage
 
   def live: URLayer[LiveDependencies, Has[Service]] =
-    Zlayer.fromServices[
+    ZLayer.fromServices[
       Logger.Service,
       ChatStorage.Service,
       RepositoryVersionStorage.Service,
       Service
-    ] {
-      (logger, chatStorage, repositoryStorage) =>
-        SubscriptionLive(logger, chatStorage, repositoryStorage)
+    ] { (logger, chatStorage, repositoryStorage) =>
+      SubscriptionLogicLive(logger, chatStorage, repositoryStorage)
     }
 }

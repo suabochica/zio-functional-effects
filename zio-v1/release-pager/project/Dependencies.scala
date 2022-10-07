@@ -2,7 +2,9 @@ import sbt._
 
 object Dependencies {
   val zio        = "dev.zio"  %% "zio"              % Version.zio
-  val zioCats    = ("dev.zio" %% "zio-interop-cats" % Version.zioCats).excludeAll(ExclusionRule("dev.zio"))
+  val zioCats    = ("dev.zio" %% "zio-interop-cats" % Version.zioCats).excludeAll(
+    ExclusionRule("dev.zio")
+  )
   val zioMacros  = "dev.zio"  %% "zio-macros"       % Version.zio
   val zioTest    = "dev.zio"  %% "zio-test"         % Version.zio % "test"
   val zioTestSbt = "dev.zio"  %% "zio-test-sbt"     % Version.zio % "test"

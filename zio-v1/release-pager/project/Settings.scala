@@ -23,7 +23,7 @@ object Settings {
   val commonSettings =
     Seq(
       scalaVersion         := "2.13.6",
-      scalaOptions         := Seq(
+      scalacOptions        := Seq(
         "-deprecation",
         "-encoding",
         "-explaintypes",
@@ -48,8 +48,8 @@ object Settings {
       resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
     )
 
-  val storageDependencies  = List(zio, zioCats) ++ doobie
-  val servicesDependencies = List(
+  val storageDependencies = List(zio, zioCats) ++ doobie
+  val serviceDependencies = List(
     canoe,
     fs2Core,
     slf4j,
@@ -58,5 +58,5 @@ object Settings {
     zioTest,
     zioTestSbt
   ) ++ circe
-  val serverDependencies   = List(flyway, pureconf, h2)
+  val serverDependencies  = List(flyway, pureconfig, h2)
 }

@@ -1,6 +1,7 @@
 package com.sua.subscription
 
-import com.sua.Repository{ Name, Version }
+// imports from domain
+import com.sua.subscription.Repository.{Name, Version}
 
 final case class RepositoryVersion(
   name: Name,

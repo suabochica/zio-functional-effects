@@ -1,13 +1,17 @@
 package com.sua.subscription.chat
 
 // imports from domain
-import com.sua.client.telegram.ChatId
-import com.sua.subscription.Remository.Name
+import com.sua.subscription.Repository.Name
 
-import zio.{ Has, ZIO, ZLayer }
+// imports from service
+import com.sua.client.telegram.ChatId
+
+// imports from external libraries
+import doobie.util.transactor.Transactor
+import zio.{ Has, Ref, Task, ZLayer }
 
 object ChatStorage {
-  type ChatStorage = Has[Service]
+  type ChatStorage     = Has[Service]
   type SubscriptionMap = Map[ChatId, Set[Name]]
 
   trait Service {

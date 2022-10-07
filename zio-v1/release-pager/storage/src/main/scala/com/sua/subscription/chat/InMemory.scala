@@ -9,14 +9,17 @@ import com.sua.subscription.chat.ChatStorage.{ Service, SubscriptionMap }
 
 import zio.{ Ref, UIO }
 
-private[chat] final case class InMemory(subscriptions: Ref[SubscriptionMap]) extends Service {
+final private[chat] case class InMemory(subscriptions: Ref[SubscriptionMap])
+    extends Service {
   type RepositoryUpdate = Set[Name] => Set[Name]
 
-  private def updateSubscriptions(chatId: ChatId)(f: RepositoryUpdate): UIO[Unit] =
+  private def updateSubscriptions(
+    chatId: ChatId
+  )(f: RepositoryUpdate): UIO[Unit] =
     subscriptions.update { current =>
       val subscriptions = current.getOrElse(chatId, Set.empty)
 
-      current + (chat -> f(subscriptions))
+      current + (chatId -> f(subscriptions))
     }.unit
 
   override def subscribe(chatId: ChatId, name: Name): UIO[Unit] =
@@ -34,7 +37,6 @@ private[chat] final case class InMemory(subscriptions: Ref[SubscriptionMap]) ext
     subscriptions
       .get
       .map(_.collect {
-        case (chatId, repositories)
-          if repositories.contains(name) => chatId
+        case (chatId, repositories) if repositories.contains(name) => chatId
       }.toSet)
 }
