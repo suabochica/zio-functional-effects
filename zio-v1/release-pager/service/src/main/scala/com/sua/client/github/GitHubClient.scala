@@ -18,7 +18,7 @@ object GitHubClient {
   type GitHubClient = Has[Service]
 
   trait Service {
-    def repositoryExist(name: Name): IO[PagerError, Name]
+    def repositoryExists(name: Name): IO[PagerError, Name]
     def releases(name: Name): IO[PagerError, List[GitHubRelease]]
   }
 
@@ -29,7 +29,7 @@ object GitHubClient {
 
   def empty: ULayer[Has[Service]] =
     ZLayer.succeed(new Service {
-      override def repositoryExist(name: Name): IO[PagerError, Name]         = ???
+      override def repositoryExists(name: Name): IO[PagerError, Name]        = ???
       override def releases(name: Name): IO[PagerError, List[GitHubRelease]] =
         ???
     })
