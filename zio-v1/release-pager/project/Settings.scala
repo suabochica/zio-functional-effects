@@ -26,6 +26,7 @@ object Settings {
       scalacOptions        := Seq(
         "-deprecation",
         "-encoding",
+        "utf-8",
         "-explaintypes",
         "-feature",
         "-language:postfixOps",
@@ -34,8 +35,7 @@ object Settings {
         "-unchecked",
         "-Ymacro-annotations",
         "-Xcheckinit",
-        "-Xfatal-warnings",
-        "utf-8"
+        "-Xfatal-warnings"
       ),
       logLevel             := Level.Info,
       version              := (version in ThisBuild).value,

@@ -17,7 +17,7 @@ import com.sua.log.Logger.Logger
 import zio.{ Has, Task, URLayer, ZLayer }
 
 object SubscriptionLogic {
-  type Subscription = Has[Service]
+  type SubscriptionLogic = Has[Service]
 
   trait Service {
     def subscribe(chatId: ChatId, name: Name): Task[Unit]
