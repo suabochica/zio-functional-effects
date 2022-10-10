@@ -22,6 +22,7 @@ object SubscriptionLogic {
   trait Service {
     def subscribe(chatId: ChatId, name: Name): Task[Unit]
     def unsubscribe(chatId: ChatId, name: Name): Task[Unit]
+    def listRepositories: Task[Map[Name, Option[Version]]]
     def listSubscriptions(chatId: ChatId): Task[Set[Name]]
     def listSubscribers(name: Name): Task[Set[ChatId]]
     def updateVersions(updateVersions: Map[Name, Version]): Task[Unit]

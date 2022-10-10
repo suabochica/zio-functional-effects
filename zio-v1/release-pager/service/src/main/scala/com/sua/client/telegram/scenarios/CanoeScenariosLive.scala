@@ -7,20 +7,20 @@ import com.sua.PagerError
 import com.sua.client.telegram.ChatId
 import com.sua.subscription.Repository.Name
 import com.sua.subscription.SubscriptionLogic
-import com.sua.validation.RepositoryValidator.RepositoryValidator
+import com.sua.validation.RepositoryValidator
 
 // imports from external libraries
 import canoe.api.{ chatApi, Scenario, TelegramClient }
 import canoe.models.Chat
 import canoe.models.messages.TextMessage
-import canoe.syntax.{ command, text }
-import zio.{ IO, Task }
+import canoe.syntax._
+import zio.{ IO, Task, ZIO }
 
 final private[scenario] case class CanoeScenariosLive(
-  repositoryValidator: RepositoryValidator,
-  subscriptionLogic: SubscriptionLogic,
+  repositoryValidator: RepositoryValidator.Service,
+  subscriptionLogic: SubscriptionLogic.Service,
   canoeClient: TelegramClient[Task]
-) extends CanoeScenarios {
+) extends CanoeScenarios.Service {
   implicit private val client: TelegramClient[Task] = canoeClient
 
   override def start: Scenario[Task, Unit] =
@@ -29,11 +29,11 @@ final private[scenario] case class CanoeScenariosLive(
       _    <- broadcastHelp(chat)
     } yield ()
 
-  override def help: Scenario[Task, Unit] = {}
-  for {
-    chat <- Scenario.expect(command("start").chat)
-    _    <- broadcastHelp(chat)
-  } yield ()
+  override def help: Scenario[Task, Unit] =
+    for {
+      chat <- Scenario.expect(command("start").chat)
+      _    <- broadcastHelp(chat)
+    } yield ()
 
   override def add: Scenario[Task, Unit] =
     for {
@@ -56,7 +56,9 @@ final private[scenario] case class CanoeScenariosLive(
                      chat.send("Please provide repository in form 'organization/name'")
                    )
       _         <-
-        Scenario.eval(chat.send("Examples: psisoyev/release-pager or zio/zio"))
+        Scenario.eval(
+          chat.send("Examples: suabochica/release-pager or zio/zio")
+        )
       userInput <- Scenario.expect(text)
       _         <- Scenario.eval(chat.send(s"Checking repository '$userInput'"))
       _         <- Scenario.eval {
