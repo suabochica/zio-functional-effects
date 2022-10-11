@@ -3,7 +3,7 @@ package com.sua.client.telegram
 // imports from domain
 // imports from service
 import com.sua.log.Logger
-import com.sua.log.Logger.Logger
+import com.sua.client.telegram.scenarios.CanoeScenarios
 
 // imports from external libraries
 import canoe.api.models.ChatApi
@@ -11,13 +11,16 @@ import canoe.api.{ Bot, TelegramClient => Client }
 import canoe.models.PrivateChat
 import canoe.models.outgoing.TextContent
 
+import zio.interop.catz.taskConcurrentInstance
+import zio.interop.catz.implicits.ioTimer
+
 import zio.{ Task, ZIO }
 
 final private[telegram] case class Canoe(
-  logger: Logger,
-  scenarios: CanoeScenarios,
+  logger: Logger.Service,
+  scenarios: CanoeScenarios.Service,
   canoeClient: Client[Task]
-) extends TelegramClient {
+) extends TelegramClient.Service {
   implicit val canoe: Client[Task] = canoeClient
 
   def broadcastMessage(receivers: Set[ChatId], message: String): Task[Unit] =
