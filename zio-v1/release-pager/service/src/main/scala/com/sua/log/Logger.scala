@@ -1,11 +1,5 @@
 package com.sua.log
 
-// imports from domain
-import com.sua.ThrowableOps.ThrowableOps
-
-// imports from services
-import com.sua.client.log.LoggerLive
-
 import zio.clock.Clock
 import zio.console.{ Console => ConsoleZIO }
 import zio.{ Has, UIO, ULayer, URLayer, ZLayer }
@@ -19,13 +13,12 @@ object Logger {
     def info(message: => String): UIO[Unit]
     def warn(message: => String): UIO[Unit]
     def error(message: => String): UIO[Unit]
-    def error(throwable: ThrowableOps)(message: => String): UIO[Unit]
+    def error(throwable: Throwable)(message: => String): UIO[Unit]
   }
 
   def live: URLayer[Clock with ConsoleZIO, Has[Service]] =
     ZLayer.fromServices[Clock.Service, ConsoleZIO.Service, Service] {
-      (clock, console) =>
-        LoggerLive(clock, console)
+      (clock, console) => LoggerLive(clock, console)
     }
 
   def silent: ULayer[Logger] =

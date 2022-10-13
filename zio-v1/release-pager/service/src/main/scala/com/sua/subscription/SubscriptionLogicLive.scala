@@ -29,7 +29,7 @@ final private[subscription] case class SubscriptionLogicLive(
     logger.info(s"Chat $chatId unsubscribed from $name") *>
       chatStorage.unsubscribe(chatId, name)
 
-  override def listRepositories: Task[Set[ChatId]] =
+  override def listRepositories: Task[Map[Name, Option[Version]]] =
     logger.info(s"Listing repositories") *>
       repositoryVersionStorage.listRepositories
 

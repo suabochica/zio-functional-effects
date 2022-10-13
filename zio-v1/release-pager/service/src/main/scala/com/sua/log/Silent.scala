@@ -1,5 +1,8 @@
 package com.sua.log
 
+// imports from services
+import com.sua.log.Logger
+
 import zio.UIO
 
 private[log] case object Silent extends Logger.Service {

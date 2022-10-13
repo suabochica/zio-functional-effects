@@ -9,13 +9,15 @@ import io.circe.{ Decoder, Encoder }
 import org.http4s.circe.{ jsonEncoderOf, jsonOf }
 import org.http4s.client.Client
 import org.http4s.{ EntityDecoder, EntityEncoder, Uri }
+import zio.interop.catz.taskConcurrentInstance
 import zio.{ IO, Task, ZIO }
 
 final private[http] case class Http4s(client: Client[Task])
     extends HttpClient.Service {
   implicit def entityDecoder[A](implicit
     decoder: Decoder[A]
-  ): EntityDecoder[Task, A] = jsonOf[Task, A]
+  ): EntityDecoder[Task, A] =
+    jsonOf[Task, A]
   implicit def entityEncoder[A](implicit
     encoder: Encoder[A]
   ): EntityEncoder[Task, A] = jsonEncoderOf[Task, A]

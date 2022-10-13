@@ -1,12 +1,10 @@
-package com.sua.client.log
+package com.sua.log
 
 // imports from domain
-import com.sua.ThrowableOps.ThrowableOps
+import com.sua.ThrowableOps._
 
-// imports from services
-import com.sua.log.Logger
-
-import zio.clock.Clock
+// imports from external librearies
+import zio.clock._
 import zio.console.{ Console => ConsoleZIO }
 import zio.{ Has, UIO, ULayer, URLayer, ZLayer }
 
@@ -20,7 +18,7 @@ final private[log] case class LoggerLive(
   def warn(message: => String): UIO[Unit]  = print(message)
   def error(message: => String): UIO[Unit] = print(message)
 
-  def error(throwable: ThrowableOps)(message: => String): UIO[Unit] =
+  def error(throwable: Throwable)(message: => String): UIO[Unit] =
     for {
       _ <- print(message)
       _ <- console.putStrLn(throwable.stackTrace).orDie

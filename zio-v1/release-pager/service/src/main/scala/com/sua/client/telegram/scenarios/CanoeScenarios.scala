@@ -21,7 +21,7 @@ object CanoeScenarios {
     def list: Scenario[Task, Unit]
   }
 
-  type LiveDependencies = Client[Task]
+  type LiveDependencies = Has[Client[Task]]
     with RepositoryValidator
     with SubscriptionLogic
 

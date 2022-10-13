@@ -16,7 +16,7 @@ import canoe.models.messages.TextMessage
 import canoe.syntax._
 import zio.{ IO, Task, ZIO }
 
-final private[scenario] case class CanoeScenariosLive(
+final private[scenarios] case class CanoeScenariosLive(
   repositoryValidator: RepositoryValidator.Service,
   subscriptionLogic: SubscriptionLogic.Service,
   canoeClient: TelegramClient[Task]

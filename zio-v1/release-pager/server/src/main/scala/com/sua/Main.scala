@@ -118,7 +118,7 @@ object Main extends App {
     }
   }
 
-  private def readConfig: IO[ConfigurationError, Config]             =
+  private def readConfig: IO[ConfigurationError, Config] =
     ZIO
       .fromEither(ConfigSource.default.load[Config])
       .mapError(failures => ConfigurationError(failures.prettyPrint()))
@@ -141,6 +141,7 @@ object Main extends App {
     val subscription = (logger ++ storage) >>> SubscriptionLogic.live
 
   }
+
   override def run(args: List[String]): ZIO[ZEnv, Nothing, ExitCode] = {
     val program = for {
       token  <- getTelegramBotToken orElse UIO.succeed(

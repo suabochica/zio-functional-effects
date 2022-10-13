@@ -25,7 +25,7 @@ final private[github] case class GitHubClientLive(
   logger: Logger.Service,
   httpClient: HttpClient.Service
 ) extends GitHubClient.Service {
-  override def repositoryExist(name: Name): IO[PagerError, Name] =
+  override def repositoryExists(name: Name): IO[PagerError, Name] =
     releases(name).as(name)
 
   override def releases(name: Name): IO[PagerError, List[GitHubRelease]] = {
