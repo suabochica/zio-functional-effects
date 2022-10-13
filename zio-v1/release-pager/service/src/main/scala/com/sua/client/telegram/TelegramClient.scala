@@ -23,7 +23,8 @@ object TelegramClient {
     ZLayer.fromServices[Client[
       Task
     ], Logger.Service, CanoeScenarios.Service, Service] {
-      (client, logger, scenarios) => Canoe(logger: Logger.Service, scenarios, client)
+      (client, logger, scenarios) =>
+        Canoe(logger: Logger.Service, scenarios, client)
     }
 
   def empty: ULayer[Has[Service]] = ZLayer.succeed(new Service {

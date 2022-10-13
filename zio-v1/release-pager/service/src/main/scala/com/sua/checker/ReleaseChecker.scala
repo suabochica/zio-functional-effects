@@ -31,7 +31,12 @@ object ReleaseChecker {
       GitHubClient.Service,
       TelegramClient.Service,
       SubscriptionLogic.Service
-    ] { (logger, githubClient, telegramClient, subscriptionLogic) =>
-      ReleaseCheckerLive(logger, gitHubClient, telegramClient, subscription)
+    ] { (logger, gitHubClient, telegramClient, subscriptionLogic) =>
+      ReleaseCheckerLive(
+        logger,
+        gitHubClient,
+        telegramClient,
+        subscriptionLogic
+      )
     }
 }

@@ -1,20 +1,27 @@
 package com.sua
 
 // imports from domain
-import com.sua.client.telegram.ChatId
-import com.sua.subscription.Repository.{ Name, Version }
 import com.sua.Config.DataBaseConfig
 import com.sua.PagerError.{ ConfigurationError, MissingBotTokenError }
-import com.sua.subscription.repository.RepositoryVersionStorage
+import com.sua.client.telegram.ChatId
+import com.sua.subscription.Repository.{ Name, Version }
 
 // imports from storage
 import com.sua.subscription.chat.ChatStorage
+import com.sua.subscription.repository.RepositoryVersionStorage
 
 // imports from service
 import com.sua.log.Logger
+import com.sua.checker.ReleaseChecker
+import com.sua.client.http.HttpClient
+import com.sua.client.github.GitHubClient
+import com.sua.client.telegram.TelegramClient
+import com.sua.client.telegram.scenarios.CanoeScenarios
 import com.sua.subscription.SubscriptionLogic
+import com.sua.validation.RepositoryValidator
 
 // imports from external libraries
+import cats.effect.{ Blocker, Resource }
 import canoe.api.{ TelegramClient => CanoeClient }
 
 import doobie.hikari.HikariTransactor
@@ -23,9 +30,22 @@ import doobie.util.transactor.Transactor
 import org.http4s.client.Client
 import org.http4s.client.blaze.BlazeClientBuilder
 
+import pureconfig.ConfigSource
+
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.ExecutionContext
+import scala.concurrent.ExecutionContext
+
 import zio.blocking.Blocking
-import zio.interop.catz.{ catsIOResourceSyntax, taskEffectInstance }
+import zio.interop.catz.{
+  catsIOResourceSyntax,
+  taskConcurrentInstance,
+  taskEffectInstance,
+  zioContextShift
+}
+import zio.interop.Schedule
 import zio.console.putStrLn
+import zio.system.System
 import zio.{
   system,
   App,
@@ -43,7 +63,7 @@ import zio.{
 }
 
 object Main extends App {
-  private def getTelegramBotToken: RIO[System, String] =
+  private def getTelegramBotToken: ZIO[System, Object, String] =
     for {
       token <- system.env("BOT_TOKEN")
       token <- ZIO.fromOption(token).orElseFail(MissingBotTokenError)
@@ -72,11 +92,36 @@ object Main extends App {
 
   private def makeTransactor(
     config: DataBaseConfig
-  ): RIO[Blocking, RManaged[Blocking, HikariTransactor[Task]]] =
-    ???
+  ): RIO[Blocking, RManaged[Blocking, HikariTransactor[Task]]] = {
+    def transactor(
+      connectExecutionContext: ExecutionContext,
+      transactExecutionContext: ExecutionContext
+    ): Resource[Task, HikariTransactor[Task]] =
+      HikariTransactor.newHikariTransactor[Task](
+        config.driver,
+        config.url,
+        config.user,
+        config.password,
+        connectExecutionContext,
+        Blocker.liftExecutionContext(transactExecutionContext)
+      )
 
-  private def readConfig: IO[ConfigurationError, Config] =
-    ???
+    ZIO.runtime[Blocking].map { implicit rt =>
+      for {
+        transactExecutionContext <-
+          ZIO.access[Blocking](_.get.blockingExecutor.asEC).toManaged_
+        transactor               <- transactor(
+                                      rt.platform.executor.asEC,
+                                      transactExecutionContext
+                                    ).toManaged
+      } yield transactor
+    }
+  }
+
+  private def readConfig: IO[ConfigurationError, Config]             =
+    ZIO
+      .fromEither(ConfigSource.default.load[Config])
+      .mapError(failures => ConfigurationError(failures.prettyPrint()))
 
   private def makeProgram(
     http4sClient: TaskManaged[Client[Task]],
@@ -96,13 +141,17 @@ object Main extends App {
     val subscription = (logger ++ storage) >>> SubscriptionLogic.live
 
   }
-
   override def run(args: List[String]): ZIO[ZEnv, Nothing, ExitCode] = {
     val program = for {
-      token <- getTelegramBotToken
+      token  <- getTelegramBotToken orElse UIO.succeed(
+                  "972654063:AAEOiS2tpJkrPNsIMLI7glUUvNCjxpJ_2T8"
+                )
+      config <- readConfig
+      _      <- FlywayMigration.migrate(config.releasePager.dataBaseConfig)
 
       http4sClient <- makeHttpClient
       canoeClient  <- makeCanoeClient(token)
+      transactor   <- makeTransactor(config.releasePager.dataBaseConfig)
 
       _ <- makeProgram(http4sClient, canoeClient)
     } yield ()
