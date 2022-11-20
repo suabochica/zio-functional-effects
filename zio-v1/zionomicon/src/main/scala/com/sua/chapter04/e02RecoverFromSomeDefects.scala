@@ -14,5 +14,11 @@ import zio.ZIO
     def recoverFromSomeDefects[R, E, A](zio: ZIO[R, E, A])(
       f: Throwable => Option[A]
     ): ZIO[R, E, A] =
-      ???
+      zio.foldCauseM(
+        cause =>
+          cause.defects
+            .collectFirst(Function.unlift(f))
+            .fold[ZIO[R, E, A]](ZIO.halt(cause))(a => ZIO.succeed(a)),
+        a => ZIO.succeed(a)
+      )
   }
