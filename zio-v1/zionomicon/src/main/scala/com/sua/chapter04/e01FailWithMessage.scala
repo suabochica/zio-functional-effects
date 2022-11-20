@@ -9,7 +9,7 @@ import zio.ZIO
    * inferred return type for the function changes.
    */
 
-object e01 {
+object e01FailWithMessage {
   def failWithMessage(str: String) = ZIO.succeed(
     throw new Error(str)
   )

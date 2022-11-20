@@ -7,6 +7,6 @@ object e01InitialTest {
     s"Hello, this is $personName"
   }
 
-  def introduceSomeoneZio(personName: String): ZIO[Any, Throwable, String] =
+  def introduceSomeoneZIO(personName: String): ZIO[Any, Throwable, String] =
     ZIO.effect(introduceSomeone(personName))
 }
