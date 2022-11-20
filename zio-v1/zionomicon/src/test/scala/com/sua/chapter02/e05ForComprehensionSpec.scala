@@ -1,11 +1,9 @@
 package com.sua.chapter02
 
-import e05ForComprehension.printLine
-
 import zio.console
 
 import zio.test.Assertion.equalTo
-import zio.test.{assert, assertM, DefaultRunnableSpec}
+import zio.test.{assert, DefaultRunnableSpec}
 import zio.test.environment.TestConsole
 
 // TODO: Fix type mismatch
