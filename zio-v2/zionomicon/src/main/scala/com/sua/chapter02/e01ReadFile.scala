@@ -16,7 +16,7 @@ object e01ReadFile {
     finally source.close()
   }
 
-  def readFileZio(filePath: String): ZIO[Any, Throwable, String] = {
+  def readFileZIO(filePath: String): ZIO[Any, Throwable, String] = {
     ZIO.attempt(readFile(filePath))
   }
 }
