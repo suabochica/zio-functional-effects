@@ -10,14 +10,19 @@ import zio.{Task, ZIO}
  */
 object e05ForComprehension {
   val random: Task[Int] = ZIO.attempt(Random.nextInt(3) + 1)
-  def printLine(line: String): Task[Unit] = ZIO.attempt(println(line))
   val readLine: Task[String] = ZIO.attempt(StdIn.readLine())
+  def printLine(line: String): Task[Unit] = ZIO.attempt(println(line))
+
+  private def checkNumber(randomNumber: String, numberToGuess: String) = {
+    if (randomNumber != numberToGuess) {
+      printLine(s"You guessed wrong, the number was $randomNumber!")
+    } else printLine("You guessed right!")
+  }
 
   for {
-    int <- random
+    randomNumber <- random
     _   <- printLine("Guess a number from 1 to 3:")
-    num <- readLine
-    _ <- if (num == int.toString) printLine("You guessed right!")
-         else printLine(s"You guessed wrong, the number was $int!")
+    numberToGuess <- readLine
+    _ <- checkNumber(randomNumber.toString, numberToGuess)
   } yield ()
 }
