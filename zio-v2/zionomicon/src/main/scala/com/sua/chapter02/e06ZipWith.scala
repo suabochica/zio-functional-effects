@@ -1,7 +1,5 @@
 package com.sua.chapter02
 
-import zio.ZIO
-
 /**
  * Implement the `zipWith` function in terms of the toy model of a ZIO
  * effect. The function should return an effect that sequentially composes

@@ -1,7 +1,5 @@
 package com.sua.chapter02
 
-import zio.ZIO
-
 /**
  * Implement the `collectAll` function in terms of the toy model of a ZIO
  * effect. The function should return an effect that sequentially collects
@@ -10,7 +8,7 @@ import zio.ZIO
 object e07CollectAll {
   import e06ZipWith.{zipWith, ToyZIO}
 
-  def succeed[A](a: => A): ZIO[Any, Nothing, A] =
+  def succeed[A](a: => A): ToyZIO[Any, Nothing, A] =
     ToyZIO(_ => Right(a))
 
   def collectAll[R, E, A] (
