@@ -7,13 +7,11 @@ import zio.{ Console, ZIO }
  *  and then prints it out to the with a greeting
  */
 
-object e17HelloHuman {
-  object HelloHuman extends ZIOAppDefault {
-    val run =
-      for {
-        _ <- Console.printLine("What is your name?")
-        name <- Console.readLine
-        _ <- Console.printLine("Hello, " + name)
-      } yield ()
-  }
+object e17HelloHuman extends ZIOAppDefault {
+  val run =
+    for {
+      _ <- Console.printLine("What is your name?")
+      name <- Console.readLine
+      _ <- Console.printLine("Hello, " + name)
+    } yield ()
 }
