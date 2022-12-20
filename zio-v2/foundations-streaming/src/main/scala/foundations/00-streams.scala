@@ -30,7 +30,7 @@ import scala.annotation.tailrec
  * STREAMS
  *
  * The requirement that streams be able to operate on unbounded amounts of
- * ddata means that streams must be lazy. In turn, laziness means that the
+ * data means that streams must be lazy. In turn, laziness means that the
  * interface of a stream cannot be exactly like that of a Scala collection.
  * That said, most collection methods have an equivalent in the world of
  * streaming.
@@ -41,7 +41,12 @@ import scala.annotation.tailrec
  */
 object SimpleStream extends ZIOSpecDefault {
   sealed trait Stream[+A] { self =>
-    final def map[B](f: A => B): Stream[B] = self.flatMap(a => Stream(f(a)))
+    final def map[B](f: A => B): Stream[B] =
+      self match {
+        case Stream.Empty => Stream.Empty
+        case Stream.Cons(head, tail) =>
+          Stream.Cons(() => f(head()), () => tail().map(f))
+      }
 
     final def slidingWindow(n:Int): Stream[Chunk[A]] = {
       mapAccum[Chunk[A], Chunk[A]](Chunk.empty) {
