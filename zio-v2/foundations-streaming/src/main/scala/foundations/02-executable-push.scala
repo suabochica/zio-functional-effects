@@ -10,10 +10,8 @@
  */
 package foundations.push
 
-import zio._
-import zio.test._
-import zio.test.TestAspect._
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicReference}
 
 /**
  * Push-based streams are "pushed to" by the producer, and ultimately
@@ -30,37 +28,148 @@ object PushBased extends ZIOSpecDefault {
   trait Stream[+A] { self =>
     def receive(onElement: A => Unit, onDone: () => Unit): Unit
 
-    final def map[B](f: A => B): Stream[B] = ???
+    // TODO: Check the implementation of ensuring operator
+    def ensuring(finalizer: () => Unit): Unit =
+      self.receive(onElement, () => {
+        try finalizer()
+        finally onDone()
+      }
 
-    final def take(n: Int): Stream[A] = ???
+    final def map[B](f: A => B): Stream[B] =
+      new Stream[B] {
+        def receive(onElement: B => Unit, onDone: () => Unit): Unit =
+          self.receive(a => onElement(f(a)), onDone)
+      }
 
-    final def drop(n: Int): Stream[A] = ???
+    final def take(n: Int): Stream[A] =
+      new Stream[A] {
+        val taken = new AtomicInteger(0)
 
-    final def filter(f: A => Boolean): Stream[A] = ???
+        def receive(onElement: A => Unit, onDone0: () => Unit): Unit = {
+          val onDone = Stream.once(onDone0)
 
-    final def ++[A1 >: A](that: => Stream[A1]): Stream[A1] = ???
+          self.receive({a =>
+            val t = taken.getAndIncrement()
 
-    final def flatMap[B](f: A => Stream[B]): Stream[B] = ???
+            if (t < n) onElement(a)
+            else {
+              onDone()
+            }
+          }, onDone)
+        }
+      }
 
-    final def mapAccum[S, B](initial: S)(f: (S, A) => (S, B)): Stream[B] = ???
+    final def drop(n: Int): Stream[A] =
+      new Stream[A] {
+        val dropped = new AtomicInteger(0)
 
-    final def foldLeft[S](initial: S)(f: (S, A) => S): S = ???
+        def receive(onElement: A => Unit, onDone: () => Unit): Unit = {
+          self.receive({a =>
+            val t = dropped.getAndIncrement()
 
-    final def duplicate: (Stream[A], Stream[A]) = ???
+            if (t < n) onElement(a)
+          }, onDone)
+        }
+
+    final def filter(f: A => Boolean): Stream[A] =
+      self.flatMap(a =>
+        if (f(a))
+          Stream(a)
+        else
+          Stream.empty
+      )
+
+    final def ++[A1 >: A](that: => Stream[A1]): Stream[A1] =
+      new Stream[A1] {
+        def receive(onElement: A1 => Unit, onDone: () => Unit): Unit =
+          self.receive(onElement, () => that.receive(onElement, onDone))
+      }
+
+    final def flatMap[B](f: A => Stream[B]): Stream[B] =
+      new Stream[B] {
+        def receive(onElement: B => Unit, onDone: () => Unit): Unit =
+            self.receive(a => f(a).receive(onElement, () => ()), onDone)
+      }
+
+    final def mapAccum[S, B](initial: S)(f: (S, A) => (S, B)): Stream[B] =
+      new Stream[B] {
+        def receive(onElement: B => Unit, onDone: () => Unit): Unit = {
+          val stateRef = new AtomicReference[S](initial)
+
+          self.receive(a => {
+            var b: Option[B] = None
+
+            stateRef.updateAndGet(s => {
+              val (s1, b1) = f(s, a)
+              b = Some(b1)
+              s1
+            })
+
+            onElement(b.get)
+        }, onDone)
+        }
+      }
+
+    final def foldLeft[S](initial: S)(f: (S, A) => S): S = {
+      val stateRef = new AtomicReference[S](initial)
+      val countDownLatch = new CountDownLatch(1)
+
+      receive(a => stateRef.updateAndGet(s0 => f(s0, a)), () => countDownLatch.countDown())
+      countDownLatch.await()
+      stateRef.get()
+    }
+
+    final def duplicate: (Stream[A], Stream[A]) = () => {
+      val subscribers = new AtomicReference[List[(A => Unit, () => Unit)]](Nil)
+      val subscribed = new CountDownLatch(2)
+
+      scala.concurrent.ExecutionContext.global.execute { () =>
+        subscribed.await()
+        self.receive(
+          a => subscribers.get.map(_._1).foreach(_ (a)),
+          () => subscribers.get.map(_._2).foreach(_ ())
+        )
+      }
+
+      val s: Stream[A] =
+        new Stream[A] {
+
+          def receive(onElement: A => Unit, onDone: () => Unit): Unit = {
+            subscribers.updateAndGet(subscribers => (onElement, onDone) :: subscribers)
+            subscribed.countDown()
+          }
+        }
+      (s, s)
+    }
+
+    final def mkString(sep: String): String =
+        self.foldLeft("") {
+          case (acc, a) =>
+            if (acc.nonEmpty)
+              acc + sep + a.toString()
+            else
+              a.toString()
+        }
 
     final def runCollect: Chunk[A] = {
       val chunkRef = new AtomicReference[Chunk[A]](Chunk.empty)
-
       val countDownLatch = new java.util.concurrent.CountDownLatch(1)
 
       receive(a => chunkRef.updateAndGet(_ :+ a), () => countDownLatch.countDown())
-
       countDownLatch.await()
-
       chunkRef.get()
     }
   }
   object Stream {
+    private def once[A](f: () => Unit): () => Unit = {
+      val called = new AtomicBoolean(false)
+
+      () => {
+        if (called.compareAndSet(false, true)) f()
+        else ()
+      }
+    }
+
     def apply[A](as0: A*): Stream[A] =
       new Stream[A] {
         def receive(onElement: A => Unit, onDone: () => Unit): Unit =
@@ -68,15 +177,23 @@ object PushBased extends ZIOSpecDefault {
           finally onDone()
       }
 
-    def unfold[S, A](initial: S)(f: S => Option[S]): Stream[S] = ???
+    val empty: Stream[Nothing] = Stream[Nothing]()
+
+    def unfold[S, A](initial: S)(f: S => Option[S]): Stream[S] =
+      Stream(initial) ++ f(initial).fold[Stream[S]](Stream.empty)(s => unfold[S, A](s)(f))
 
     def iterate[S](initial: S)(f: S => S): Stream[S] = unfold(initial)(s => Some(f(s)))
 
     def attempt[A](a: => A): Stream[A] =
       ???
 
-    def suspend[A](stream: => Stream[A]): Stream[A] =
-      ???
+    def suspend[A](stream0: => Stream[A]): Stream[A] =
+      new Stream[A] {
+        lazy val stream = stream0
+
+        def receive(onElement: A => Unit, onDone: () => Unit): Unit =
+          stream.receive(onElement, onDone)
+      }
 
     def fromFile(file: String): Stream[Byte] = {
       import java.io.FileInputStream

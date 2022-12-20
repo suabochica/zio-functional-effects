@@ -40,12 +40,35 @@ import scala.annotation.tailrec
  * your knowledge of Scala collections to understand streams.
  */
 object SimpleStream extends ZIOSpecDefault {
-  sealed trait Stream[+A] {
-    final def map[B](f: A => B): Stream[B] = ???
+  sealed trait Stream[+A] { self =>
+    final def map[B](f: A => B): Stream[B] = self.flatMap(a => Stream(f(a)))
 
-    final def take(n: Int): Stream[A] = ???
+    final def slidingWindow(n:Int): Stream[Chunk[A]] = {
+      mapAccum[Chunk[A], Chunk[A]](Chunk.empty) {
+        case (acc, a) =>
+          val acc2 = acc :+ a
 
-    final def drop(n: Int): Stream[A] = ???
+          if (acc2.length >= n) (acc2.drop(1), acc2)
+          else (acc2, Chunk.empty)
+      }
+    }
+
+    final def take(n: Int): Stream[A] =
+      if (n <= 0) Stream.Empty
+      else
+        self match {
+          case Stream.Empty => Stream.Empty
+          case Stream.Defer(stream) => Stream.suspend
+        }
+
+    final def drop(n: Int): Stream[A] =
+      if (n <= 0) self
+      else
+        self match {
+          case Stream.Empty => Stream.Empty
+          case Stream.Cons(head, tail) =>
+            tail().drop(n - 1)
+        }
 
     final def filter(f: A => Boolean): Stream[A] = ???
 

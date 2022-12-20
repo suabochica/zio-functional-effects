@@ -3,12 +3,12 @@
  *
  * There are two opposite ways to create any streaming toolkit: using
  * a pushed-based engine, or using a pull-based engine. Each has its own
- * strenths and weaknesses.
+ * strengths and weaknesses.
  *
  * Akka Streams is an example of push-based, while FS2 is pull-based.
  *
  * Pull-based streams are lazy and do minimal computation, which makes them
- * equivalent to end-to-end backpressuring. They are adept at fan-in
+ * equivalent to end-to-end backpressure. They are adept at fan-in
  * operations, such as concurrent merge, but are not adept at fan-out.
  */
 package foundations.streams.pull

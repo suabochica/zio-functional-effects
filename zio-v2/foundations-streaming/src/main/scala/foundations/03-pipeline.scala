@@ -10,12 +10,9 @@
  */
 package foundations.pipeline
 
-import zio._
-
-import zio.test._
-import zio.test.TestAspect._
-
 import foundations.streams.intro.SimpleStream._
+
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * In this section, you will learn about pipelines as a _stream transformer_,
@@ -27,22 +24,54 @@ import foundations.streams.intro.SimpleStream._
  */
 object SimplePipelineSpec extends ZIOSpecDefault {
   final case class Pipeline[-A, +B](run: Stream[A] => Stream[B]) {
-    def >>>[C](that: Pipeline[B, C]): Pipeline[A, C] = ???
+    def >>>[C](that: Pipeline[B, C]): Pipeline[A, C] = self =>
+      Pipeline[A, C] = self.andThen(that.run)
   }
   object Pipeline {
-    def identity[A]: Pipeline[A, A] = ???
+    def stringToChar: Pipeline[String, Char] =
+      Pipeline(s => s.flatMap(str => Stream(str.toList: _*)))
 
-    def map[A, B](f: A => B): Pipeline[A, B] = ???
+    def chunked[A](n: Int): Pipeline[A, Chunk[A]] =
+      Pipeline(s => s.mapAccum(Chunk[A],Chunk.empty[A]){
+        case (chunk, a) if chunk.length >= (n - 1) => (Chunk.empty, chunk)
+        case (chunk, a) => (chunk :+ a, Chunk.empty)
+      }.filter(_ != Chunk.emptty))
 
-    def filter[A](f: A => Boolean): Pipeline[A, A] = ???
+    def identity[A]: Pipeline[A, A] = Pipeline(s => s)
+
+    def map[A, B](f: A => B): Pipeline[A, B] = Pipeline(_.map(f))
+
+    def filter[A](f: A => Boolean): Pipeline[A, A] = Pipeline(_.filter(f))
+
+    val p: Pipeline[Int, Int] =
+      Pipeline.identity[Int] >>>
+      Pipeline.filter(_ > 0) >>>
+      Pipeline.filter(_ % 2 == 0) >>>
+      Pipeline.map(_ + 1)
   }
-  final case class Sink[-A](run: Stream[A] => Unit) {
-    def &&[A1 <: A](that: Sink[A1]): Sink[A1] = ???
+  final case class Sink[-A](run: Stream[A] => Unit) { self =>
+    def &&[A1 <: A](that: Sink[A1]): Sink[A1] =
+      Sink { stream =>
+        val s1,s2 = stream.duplicate
+        self.run(s1)
+        that.run(s2)
+      }
   }
   object Sink {
-    def foreach[A](f: A => Unit): Sink[A] = ???
+    def drain: Sink[Any] =
+      Sink(_.foldLeft(())((_,_) => ()))
 
-    def logElements[A](prefix: String): Sink[A] = ???
+    def collectTo[A](ref: AtomicReference[Chunk[A]]): Sink[A] =
+      foreach(a => ref.updateAndGet(_ :+ a))
+
+    def foreach[A](f: A => Unit): Sink[A] =
+      Sink(_.foldLeft[Unit](()) {
+        case(_,a) => f(a)
+      })
+
+    def logElements[A](prefix: String): Sink[A] =
+      if (prefix == "") foreach(a => println(a.toString()))
+      else foreach(a => println(s"$prefix: $a"))
   }
 
   def spec =
@@ -188,14 +217,22 @@ object AdvancedPipelineSpec extends ZIOSpecDefault {
     def filter[A](f: A => Boolean): Pipeline[A, A] =
       Pipeline(_.filter(f))
 
-    def splitWords: Pipeline[String, String] = ???
+    def splitWords: Pipeline[String, String] =
+      Pipeline(stream => stream.flatMap(line => Stream(line.split("\\s+"): _*)))
 
-    def transform[S, A, B](s: S)(f: (S, A) => (S, Chunk[B])): Pipeline[A, B] = ???
+    def transform[S, A, B](s: S)(f: (S, A) => (S, Chunk[B])): Pipeline[A, B] =
+      Pipeline[A,B] { stream =>
+        stream.mapAccum(s) {
+          case(s, a) => f(s, a)
+        }.flatMap(chunk => Stream(chunk: _*))
+      }
   }
   final case class Sink[-A, +B](run: Stream[A] => B) {
-    def &&[A1 <: A, C](that: Sink[A1, C]): Sink[A1, (B, C)] = ???
+    def &&[A1 <: A, C](that: Sink[A1, C]): Sink[A1, (B, C)] =
+      Sink(a => (run(a), that.run(a)))
 
-    def map[C](f: B => C): Sink[A, C] = ???
+    def map[C](f: B => C): Sink[A, C] =
+      Sink(a => f(run(a)))
   }
   object Sink {
 
@@ -203,7 +240,19 @@ object AdvancedPipelineSpec extends ZIOSpecDefault {
       Sink(_.foldLeft[Unit](())((_, a) => f(a)))
 
     def sum[A](implicit n: Numeric[A]): Sink[A, A] =
-      ???
+      Sink(_.foldLeft(n.zero)(n.plus))
+
+    def max[A](implicit n: Numeric[A]): Sink[A, A] =
+      Sink(_.foldLeft(n.zero)(n.max))
+
+    def wordCount: Sink[String, Map[String, Int]] =
+      Sink(_.foldLeft(Map.empty[String, Int] {
+        case (a, string) =>
+          string.split("\\s+").foldLeft(a){
+            case (a, b) => a + (b -> a.getOrElse(b, 0) + 1)))
+          }
+
+      }
 
     def fold[S, A](s: S)(f: (S, A) => S): Sink[A, S] = ???
   }

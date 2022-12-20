@@ -16,14 +16,10 @@
  */
 package foundations.concurrent
 
-import zio._
-
-import zio.test._
-import zio.test.TestAspect._
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 
 /**
- * In this section, you will use the executionable push-based stream encoding
+ * In this section, you will use the executable push-based stream encoding
  * to implement a variety of concurrent operators. These operators are not
  * easy to implement or get right. Nor is it necessarily obvious where to stop,
  * since the number of potentially useful concurrent operators is very high.
@@ -44,23 +40,70 @@ object ConcurrentSpec extends ZIOSpecDefault {
           self.receive(a => if (f(a)) onElement(a), onDone)
       }
 
-    final def merge[A1 >: A](that: => Stream[A1]): Stream[A1] = ???
+    final def merge[A1 >: A](that: => Stream[A1]): Stream[A1] =
+      new Stream[A1] {
+        def receive(onElement: A1 => Unit, onDone0: () => Unit): Unit = {
+          import scala.concurrent.ExecutionContext.global
 
-    final def mapPar[B](f: A => B): Stream[B] = ???
+          val doneCount = new AtomicInteger(0)
+          val onDone = () => {
+            if (doneCount.incrementAndGet() == 2) onDone0()
+          }
 
-    final def flatMapPar[B](f: A => Stream[B]): Stream[B] = ???
+          global.execute(() => self.receive(onElement, onDone))
+          global.execute(() => that.receive(onElement, onDone))
+        }
+      }
+
+    final def mapPar[B](f: A => B): Stream[B] =
+      new Stream[B] {
+        def receive(onElement: B => Unit, onDone: () => Unit): Unit = {
+          import scala.concurrent.ExecutionContext.global
+          val pendingAs = new AtomicInteger(0)
+
+          self.receive(a => {
+            pendingAs.incrementAndGet()
+            global.execute{() =>
+              onElement(f(a))
+              if (pendingAs.decrementAndGet() == 0) onDone()
+            }
+          }, () => { while (pendingAs.get() != 0) Thread.`yield`(); onDone})
+        }
+      }
+
+    final def flatMapPar[B](f: A => Stream[B]): Stream[B] =
+      new Stream[B] {
+        def receive(onElement: B => Unit, onDone: () => Unit): Unit = {
+          import scala.concurrent.ExecutionContext.global
+          self.receive(a => global.execute(() => f(a).receive(onElement, () => ())), onDone)
+        }
+      }
+
+    final def aggregateUntil(maxSize: Int, maxDelay: Duration): Stream[Chunk[A]] = {
+      new Stream[Chunk[A]] {
+        val chunkRef = new AtomicReference[Chunk[A]](Chunk.empty)
+        def receive = onElement: Chunk[A] => Unit, onDone: () => Unit): Unit = {
+          self.receive({ a =>
+            val chunk = chunkRef.updateAndGet(_ :+ a)
+
+            if (chunk.size >= maxSize) onElement(chunk)
+          }, () => {
+            val chunk = chunkRef.getAndUpdate(_ => Chunk.empty)
+            if (chunk.nonEmpty) onElement(chunk)
+            onDone()
+          })
+        }
+      }
+    }
 
     final def batchUntil(maxSize: Int, maxDelay: Duration): Stream[Chunk[A]] = ???
 
     final def runCollect: Chunk[A] = {
       val chunkRef = new AtomicReference[Chunk[A]](Chunk.empty)
-
       val countDownLatch = new java.util.concurrent.CountDownLatch(1)
 
       receive(a => chunkRef.updateAndGet(_ :+ a), () => countDownLatch.countDown())
-
       countDownLatch.await()
-
       chunkRef.get()
     }
   }
