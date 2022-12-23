@@ -44,7 +44,7 @@ import scala.annotation.tailrec
 
 object SimpleStream extends ZIOSpecDefault {
   sealed trait Stream[+A] { self =>
-    final def map[B](f: A => B): Stream[B] = self.flatMap(a = Stream(f(a)))
+    final def map[B](f: A => B): Stream[B] = self.flatMap(a => Stream(f(a)))
 
     final def slidingWindow(n:Int): Stream[Chunk[A]] = {
       mapAccum[Chunk[A], Chunk[A]](Chunk.empty) {
@@ -146,7 +146,7 @@ object SimpleStream extends ZIOSpecDefault {
   }
 
   object Stream {
-    case object Empty                                               extends Stream[Nothing]
+    case object Empty                                   extends Stream[Nothing]
     final case class Defer[+A](stream: () => Stream[A]) extends  Stream[A]
     // TODO: find out what 'Cons' means
     final case class Cons[+A](head: A, tail: Stream[A]) extends Stream[A]

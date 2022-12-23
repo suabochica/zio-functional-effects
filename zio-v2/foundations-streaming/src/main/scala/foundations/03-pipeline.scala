@@ -11,8 +11,11 @@
 package foundations.pipeline
 
 import foundations.streams.intro.SimpleStream._
-
 import java.util.concurrent.atomic.AtomicReference
+
+import zio._
+import zio.test._
+import zio.test.TestAspect._
 
 /**
  * In this section, you will learn about pipelines as a _stream transformer_,
@@ -23,19 +26,21 @@ import java.util.concurrent.atomic.AtomicReference
  * capabilities and use cases.
  */
 object SimplePipelineSpec extends ZIOSpecDefault {
-  final case class Pipeline[-A, +B](run: Stream[A] => Stream[B]) {
-    def >>>[C](that: Pipeline[B, C]): Pipeline[A, C] = self =>
-      Pipeline[A, C] = self.andThen(that.run)
+  final case class Pipeline[-A, +B](run: Stream[A] => Stream[B]) { self =>
+    // Means: Check what means the '>>>' operator
+    def >>>[C](that: Pipeline[B, C]): Pipeline[A, C] =
+      Pipeline[A, C](self.run.andThen(that.run))
   }
+
   object Pipeline {
     def stringToChar: Pipeline[String, Char] =
       Pipeline(s => s.flatMap(str => Stream(str.toList: _*)))
 
     def chunked[A](n: Int): Pipeline[A, Chunk[A]] =
-      Pipeline(s => s.mapAccum(Chunk[A],Chunk.empty[A]){
+      Pipeline(s => s.mapAccum(Chunk.empty[A]) {
         case (chunk, a) if chunk.length >= (n - 1) => (Chunk.empty, chunk)
         case (chunk, a) => (chunk :+ a, Chunk.empty)
-      }.filter(_ != Chunk.emptty))
+      }.filter(_ != Chunk.empty))
 
     def identity[A]: Pipeline[A, A] = Pipeline(s => s)
 
@@ -49,14 +54,16 @@ object SimplePipelineSpec extends ZIOSpecDefault {
       Pipeline.filter(_ % 2 == 0) >>>
       Pipeline.map(_ + 1)
   }
+
   final case class Sink[-A](run: Stream[A] => Unit) { self =>
+    // TODO: Check what the && operator is
     def &&[A1 <: A](that: Sink[A1]): Sink[A1] =
       Sink { stream =>
-        val s1,s2 = stream.duplicate
-        self.run(s1)
-        that.run(s2)
+        self.run(stream)
+        that.run(stream)
       }
   }
+
   object Sink {
     def drain: Sink[Any] =
       Sink(_.foldLeft(())((_,_) => ()))
@@ -246,15 +253,15 @@ object AdvancedPipelineSpec extends ZIOSpecDefault {
       Sink(_.foldLeft(n.zero)(n.max))
 
     def wordCount: Sink[String, Map[String, Int]] =
-      Sink(_.foldLeft(Map.empty[String, Int] {
-        case (a, string) =>
-          string.split("\\s+").foldLeft(a){
-            case (a, b) => a + (b -> a.getOrElse(b, 0) + 1)))
+      Sink(_.foldLeft(Map.empty[String, Int]) {
+        case (m, string) =>
+          string.split("\\s+").foldLeft(m){
+            case (m, s) => m + (s -> (m.getOrElse(s, 0) + 1))
           }
+      })
 
-      }
-
-    def fold[S, A](s: S)(f: (S, A) => S): Sink[A, S] = ???
+    def fold[S, A](s: S)(f: (S, A) => S): Sink[A, S] =
+      Sink(_.foldLeft(s)(f))
   }
 
   def spec = suite("AdvancedPipelineSpec") {
