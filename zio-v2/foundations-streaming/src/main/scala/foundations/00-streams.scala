@@ -43,10 +43,11 @@ import scala.annotation.tailrec
  */
 
 object SimpleStream extends ZIOSpecDefault {
-  sealed trait Stream[+A] { self =>
+  sealed trait Stream[+A] {
+    self =>
     final def map[B](f: A => B): Stream[B] = self.flatMap(a => Stream(f(a)))
 
-    final def slidingWindow(n:Int): Stream[Chunk[A]] = {
+    final def slidingWindow(n: Int): Stream[Chunk[A]] = {
       mapAccum[Chunk[A], Chunk[A]](Chunk.empty) {
         case (acc, a) =>
           val acc2 = acc :+ a
@@ -146,15 +147,17 @@ object SimpleStream extends ZIOSpecDefault {
   }
 
   object Stream {
-    case object Empty                                   extends Stream[Nothing]
-    final case class Defer[+A](stream: () => Stream[A]) extends  Stream[A]
+    case object Empty extends Stream[Nothing]
+
+    final case class Defer[+A](stream: () => Stream[A]) extends Stream[A]
+
     // TODO: find out what 'Cons' means
     final case class Cons[+A](head: A, tail: Stream[A]) extends Stream[A]
 
     def apply[A](as: A*): Stream[A] = {
       def loop(list: List[A]): Stream[A] =
         list match {
-          case Nil          => Empty
+          case Nil => Empty
           case head :: tail => Cons(head, loop(tail))
         }
 
@@ -162,7 +165,9 @@ object SimpleStream extends ZIOSpecDefault {
     }
 
     def cons[A](head: A, tail: => Stream[A]): Stream[A] = Cons(head, suspend(tail))
+
     def suspend[A](make: => Stream[A]): Stream[A] = Stream.Defer(() => make)
+
     def unfold[S, A](initial: S)(f: S => Option[S]): Stream[S] =
       Stream(initial) ++ {
         f(initial) match {
@@ -185,8 +190,8 @@ object SimpleStream extends ZIOSpecDefault {
             else Stream(int.toByte) ++ readBytes()
           }
 
-          readBytes()
-        }
+        readBytes()
+      }
   }
 
   def spec = suite("SimpleStream") {
@@ -230,7 +235,7 @@ object SimpleStream extends ZIOSpecDefault {
           for {
             dropped <- ZIO.succeed(stream.drop(2))
           } yield assertTrue(dropped.runCollect == Chunk(3, 4))
-        } @@ ignore +
+        } +
         /**
          * EXERCISE
          *
@@ -243,7 +248,7 @@ object SimpleStream extends ZIOSpecDefault {
           for {
             filtered <- ZIO.succeed(stream.filter(_ % 2 == 0))
           } yield assertTrue(filtered.runCollect == Chunk(2, 4))
-        } @@ ignore +
+        } +
         /**
          * EXERCISE
          *
@@ -259,7 +264,7 @@ object SimpleStream extends ZIOSpecDefault {
           for {
             appended <- ZIO.succeed(stream1 ++ stream2)
           } yield assertTrue(appended.runCollect == Chunk(1, 2, 3, 4, 5, 6, 7, 8))
-        } @@ ignore +
+        } +
         /**
          * EXERCISE
          *
@@ -272,7 +277,7 @@ object SimpleStream extends ZIOSpecDefault {
           for {
             flatMapped <- ZIO.succeed(stream.flatMap(a => Stream(a, a)))
           } yield assertTrue(flatMapped.runCollect == Chunk(1, 1, 2, 2, 3, 3, 4, 4))
-        } @@ ignore +
+        } +
         /**
          * EXERCISE
          *
@@ -305,7 +310,7 @@ object SimpleStream extends ZIOSpecDefault {
               User("msmith", "Mary Smith", 25)
             )
           )
-        } @@ ignore +
+        } +
         /**
          * EXERCISE
          *
@@ -318,7 +323,7 @@ object SimpleStream extends ZIOSpecDefault {
           for {
             mapped <- ZIO.succeed(stream.mapAccum(0)((acc, a) => (acc + a, acc + a)))
           } yield assertTrue(mapped.runCollect == Chunk(1, 3, 6, 10))
-        } @@ ignore +
+        } +
         /**
          * EXERCISE
          *
@@ -331,10 +336,9 @@ object SimpleStream extends ZIOSpecDefault {
           for {
             folded <- ZIO.succeed(stream.foldLeft(0)(_ + _))
           } yield assertTrue(folded == 10)
-        } @@ ignore
+        }
     } +
       suite("advanced constructors") {
-
         /**
          * EXERCISE
          *
@@ -355,9 +359,15 @@ object SimpleStream extends ZIOSpecDefault {
            * an infinite list!
            */
           test("iterate") {
-            lazy val evenIntegers: Stream[Int] = ???
+            lazy val evenIntegers: Stream[Int] =
+              Stream.iterate(1)(_ + 1).filter(_ % 2 == 0)
 
             assertTrue(evenIntegers.take(2).runCollect == Chunk(2, 4))
+          } +
+          test("fromFile") {
+            val string = Stream.fromFile("build.sbt").take(1).makeString("")
+
+            assertTrue(string == "118")
           }
       }
   }
@@ -375,23 +385,28 @@ object SimpleStream extends ZIOSpecDefault {
  *
  */
 object ResourcefulStream extends ZIOSpecDefault {
-  sealed trait Stream[+A] { self =>
+  sealed trait Stream[+A] {
+    self =>
     final def map[B](f: A => B): Stream[B] =
-      self match {
-        case Stream.Empty => Stream.Empty
-        case Stream.Cons(head, tail) =>
-          Stream.Cons(() => f(head()), () => tail().map(f))
-      }
+      self.flatMap(a => Stream.attempt(f(a)))
 
-    final def ++[A1 >: A](that: => Stream[A1]): Stream[A1] = ???
+    final def ++[A1 >: A](that: => Stream[A1]): Stream[A1] =
+      Stream.Concat(self, Stream.suspend(that))
 
     final def ensuring(finalizer: => Unit): Stream[A] = Stream.Ensuring(this, () => finalizer)
 
-    final def flatMap[B](f: A => Stream[B]): Stream[B] = ???
+    final def flatMap[B](f: A => Stream[B]): Stream[B] =
+      self match {
+        case Stream.Empty => Stream.Empty
+        case Stream.Defer(make) => Stream.Defer(() => make().flatMap(f))
+        case Stream.Cons(head, tail) => Stream.suspend(f(head) ++ tail.flatMap(f))
+        case Stream.Ensuring(stream, finalizer) => Stream.Ensuring(stream.flatMap(f), finalizer)
+        case Stream.Concat(left, right) => left.flatMap(f) ++ right.flatMap(f)
+      }
 
-    final def runCollect: Chunk[A] = {
+    final def foldLeft[S](initial: S)(f: (S, A) => S): S = {
       @tailrec
-      def loop[A](streams: List[(Stream[A], List[() => Unit])], acc: Chunk[A]): Chunk[A] =
+      def loop(streams: List[(Stream[A], List[() => Unit])], acc: S): S =
         streams match {
           case Nil => acc
 
@@ -400,42 +415,96 @@ object ResourcefulStream extends ZIOSpecDefault {
 
             loop(rest, acc)
 
+          case (Stream.Defer(stream), finalizers) :: rest =>
+            loop((stream(), finalizers) :: rest, acc)
+
           case (Stream.Cons(head, tail), finalizers) :: rest =>
-            loop((tail(), finalizers) :: rest, acc :+ head())
+            loop((tail, finalizers) :: rest, f(acc, head))
 
           case (Stream.Ensuring(stream, finalizer), finalizers) :: rest =>
             loop((stream, finalizer :: finalizers) :: rest, acc)
+
+          case (Stream.Concat(l, r), finalizers) :: rest =>
+            loop((l, Nil) :: (r, finalizers) :: rest, acc)
         }
 
-      loop((this -> Nil) :: Nil, Chunk.empty)
+      loop((this -> Nil) :: Nil, initial)
+    }
+
+    final def makeString(separator: String): String =
+      self.foldLeft("") {
+        case (acc, a) =>
+          if (acc.nonEmpty) acc + separator + a.toString()
+          else a.toString()
+      }
+
+    final def runCollect: Chunk[A] = foldLeft[Chunk[A]](Chunk.empty[A])(_ :+ _)
+
+    final def runLast: Option[A] = foldLeft[Option[A]](None) {
+      case (_, a) => Some(a)
     }
   }
+
   object Stream {
-    case object Empty                                                       extends Stream[Nothing]
-    final case class Cons[+A](head: () => A, tail: () => Stream[A])         extends Stream[A]
+    case object Empty extends Stream[Nothing]
+
+    final case class Defer[+A](stream: () => Stream[A]) extends Stream[A]
+
+    final case class Cons[+A](head: A, tail: Stream[A]) extends Stream[A]
+
     final case class Ensuring[+A](stream: Stream[A], finalizer: () => Unit) extends Stream[A]
+
+    final case class Concat[+A](left: Stream[A], right: Stream[A]) extends Stream[A]
 
     def apply[A](as: A*): Stream[A] = {
       def loop(list: List[A]): Stream[A] =
         list match {
-          case Nil          => Empty
-          case head :: tail => Cons(() => head, () => loop(tail))
+          case Nil => Empty
+          case head :: tail => Cons(head, loop(tail))
         }
 
       loop(as.toList)
     }
 
+    def addFinalizer(f: () => Unit): Stream[Nothing] =
+      Stream[Nothing]().ensuring(f())
+
+    def cons[A](a: => A, tail: => Stream[A]): Stream[A] =
+      Stream.suspend(Cons(a, tail))
+
     def attempt[A](a: => A): Stream[A] =
-      ???
+      suspend(Stream(a))
 
     def suspend[A](stream: => Stream[A]): Stream[A] =
-      ???
+      Defer(() => stream)
 
-    def fromFile(file: String): Stream[Byte] = {
-      import java.io.FileInputStream
+    def fromFile(file: String): Stream[Byte] =
+      Stream.suspend {
+        val fis = new FileInputStream(file)
 
-      ???
+        def readBytes(): Stream[Byte] =
+          Stream.suspend {
+            val int = fis.read()
+
+            if (int < 0) Stream()
+            else Stream(int.toByte) ++ readBytes()
+          }
+
+        readBytes().ensuring(fis.close())
+      }
+
+    trait Serde[A]
+
+    trait KafkaMessage[A] {
+      def offset: Int
+
+      def message: A
+
+      def commit: Task[Unit]
     }
+
+    def fromKafkaTopic[A: Serde](topic: String): Stream[KafkaMessage[A]] =
+      ???
   }
 
   def spec = suite("ResourcefulStream") {
@@ -453,7 +522,7 @@ object ResourcefulStream extends ZIOSpecDefault {
       Stream.attempt(new FileInputStream("build.sbt"))
 
       assertCompletes
-    } @@ ignore +
+    } +
       /**
        * EXERCISE
        *
@@ -463,7 +532,7 @@ object ResourcefulStream extends ZIOSpecDefault {
         val blowup = Stream.suspend(???)
 
         assertCompletes
-      } @@ ignore +
+      } +
       /**
        * EXCERCISE
        *
@@ -474,6 +543,6 @@ object ResourcefulStream extends ZIOSpecDefault {
         val stream = Stream.fromFile("build.sbt")
 
         assertTrue(stream.runCollect.length > 0)
-      } @@ ignore
+      }
   }
 }
