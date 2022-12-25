@@ -26,14 +26,16 @@ import scala.annotation.tailrec
  * certain operations may implicitly pull more elements from the stream.
  */
 object PullBased extends ZIOSpecDefault {
-  trait ClosableIterator[+A] extends AutoCloseable { self =>
+  trait ClosableIterator[+A] extends AutoCloseable {
+    self =>
     def hasNext: Boolean
+
     def next(): A
 
     def ++[A1 >: A](that0: => ClosableIterator[A1]): ClosableIterator[A1] = new ClosableIterator[A1] {
       private var current: ClosableIterator[A1] = self
-      private var isFirst: Boolean              = true
-      private lazy val that                     = that0
+      private var isFirst: Boolean = true
+      private lazy val that = that0
 
       def hasNext =
         if (current.hasNext) true
@@ -55,7 +57,9 @@ object PullBased extends ZIOSpecDefault {
 
     def map[B](f: A => B): ClosableIterator[B] = new ClosableIterator[B] {
       def hasNext = self.hasNext
-      def next()  = f(self.next())
+
+      def next() = f(self.next())
+
       def close() = self.close()
     }
 
@@ -94,17 +98,109 @@ object PullBased extends ZIOSpecDefault {
   trait Stream[+A] { self =>
     def iterator(): ClosableIterator[A]
 
-    final def map[B](f: A => B): Stream[B] = ???
+    final def map[B](f: A => B): Stream[B] =
+      new Stream[B] {
+        def iterator(): ClosableIterator[B] = self.iterator().map(f)
+      }
 
-    final def take(n: Int): Stream[A] = ???
+    final def take(n: Int): Stream[A] =
+      new Stream[A] {
+        def iterator(): ClosableIterator[A] =
+          new ClosableIterator[A] {
+            val outer = self.iterator()
+            var taken = 0
 
-    final def drop(n: Int): Stream[A] = ???
+            def hasNext: Boolean =
+              (taken < n) && outer.hasNext
 
-    final def filter(f: A => Boolean): Stream[A] = ???
+            def next(): A = {
+              val element = outer.next()
 
-    final def ++[A1 >: A](that: => Stream[A1]): Stream[A1] = ???
+              taken = taken + 1
+              element
+            }
 
-    final def flatMap[B](f: A => Stream[B]): Stream[B] = ???
+            def close(): Unit = outer.close()
+          }
+      }
+
+    final def drop(n: Int): Stream[A] =
+      new Stream[A] {
+        override def iterator(): ClosableIterator[A] =
+          new ClosableIterator[A] {
+            val outer = self.iterator()
+
+            (1 to n).foreach { _ =>
+              if (outer.hasNext) outer.next()
+            }
+
+            def hasNext: Boolean = outer.hasNext
+            def next(): A = outer.next()
+            def close(): Unit = outer.close()
+          }
+      }
+
+    final def filter(f: A => Boolean): Stream[A] =
+      new Stream[A] {
+        def iterator(): ClosableIterator[A] =
+          new ClosableIterator[A] {
+            val outer = self.iterator()
+            var nextElement = findNext()
+
+            @tailrec
+            def findNext(): Option[A] =
+              if (!outer.hasNext) None
+              else {
+                val element = outer.next()
+
+                if (f(element)) Some(element)
+                else findNext()
+              }
+
+            def hasNext: Boolean = nextElement.isDefined
+
+            def next(): A = {
+              val element = nextElement.get
+
+              nextElement = findNext()
+              element
+            }
+
+            def close(): Unit = outer.close()
+          }
+      }
+
+    final def ++[A1 >: A](that: => Stream[A1]): Stream[A1] =
+      new Stream[A1] {
+        def iterator(): ClosableIterator[A1] =
+          new ClosableIterator[A1] {
+            var current: ClosableIterator[A1] = self.iterator()
+            var inLeft = true
+
+            @tailrec
+            def hasNext: Boolean = {
+              val isNext = current.hasNext
+
+              if (!isNext && inLeft) {
+                current.close()
+                current = that.iterator()
+                inLeft = false
+                hasNext
+              }
+              else isNext
+            }
+
+            def next(): A1 = current.next()
+
+            def close(): Unit = current.close()
+          }
+      }
+
+    final def flatMap[B](f: A => Stream[B]): Stream[B] =
+      new Stream[B] {
+        def iterator(): ClosableIterator[B] =
+          self.iterator().flatMap(a => f(a).iterator())
+      }
 
     final def mapAccum[S, B](initial: S)(f: (S, A) => (S, B)): Stream[B] = ???
 
