@@ -238,10 +238,71 @@ object PullBased extends ZIOSpecDefault {
       state
   }
 
-    final def zip[B](that: Stream[B]): Stream[(A, B)] = ???
+    final def zip[B](that: Stream[B]): Stream[(A, B)] =
+      new Stream[(A, B)] {
+        def iterator(): ClosableIterator[(A, B)] =
+          new ClosableIterator[(A, B)] {
+            val left = self.iterator()
+            val right = that.iterator()
 
-    final def merge[A1 >: A](that: Stream[A1]): Stream[A1] = ???
+            def close(): Unit = {
+              try left.close()
+              finally right.close()
+            }
 
+            def hasNext: Boolean = left.hasNext && right.hasNext
+
+            def next(): (A, B) = (left.next(), right.next())
+          }
+      }
+
+    final def merge[A1 >: A](that: Stream[A1]): Stream[A1] =
+      new Stream[A1] {
+        def iterator(): ClosableIterator[A1] =
+          new ClosableIterator[A1] {
+            val left = self.iterator()
+            val right = that.iterator()
+            var readLeft = true
+
+            def hasNext: Boolean = left.hasNext || right.hasNext
+
+            def close(): Unit = {
+              try left.close()
+              finally right.close()
+            }
+
+            @tailrec
+            def next(): A1 =
+              if (!left.hasNext && !right.hasNext)
+                throw new NoSuchElementException("Illegal invocation of next" )
+              else if (readLeft) {
+                if (left.hasNext) {
+                  readLeft = false
+                  left.next()
+                } else {
+                  readLeft = false
+                  next()
+                }
+              } else {
+                if (right.hasNext) {
+                  readLeft = true
+                  right.next()
+                } else {
+                  readLeft = true
+                  next()
+                }
+              }
+          }
+      }
+
+    final def makeString(separator: String): String =
+      self.foldLeft("") {
+        case (acc, a) =>
+          if (acc.nonEmpty) a + separator + a.toString()
+          else a.toString()
+      }
+
+    /** replaced with the 'foldLeft' version
     final def runCollect: Chunk[A] = {
       val builder = ChunkBuilder.make[A]()
 
@@ -255,7 +316,15 @@ object PullBased extends ZIOSpecDefault {
 
       builder.result()
     }
+    */
+
+    final def runCollect: Chunk[A] = foldLeft[Chunk[A]](Chunk.empty[A])(_ :+ _)
+
+    final def runLast: Option[A] = foldLeft[Option[A]](None) {
+      case (_, a) => Some(a)
+    }
   }
+
   object Stream {
     def apply[A](as0: A*): Stream[A] =
       new Stream[A] {
@@ -305,7 +374,7 @@ object PullBased extends ZIOSpecDefault {
         for {
           mapped <- ZIO.succeed(stream.map(_ + 1))
         } yield assertTrue(mapped.runCollect == Chunk(2, 3, 4, 5))
-      } @@ ignore +
+      } +
         /**
          * EXERCISE
          *
@@ -318,7 +387,7 @@ object PullBased extends ZIOSpecDefault {
           for {
             taken <- ZIO.succeed(stream.take(2))
           } yield assertTrue(taken.runCollect == Chunk(1, 2))
-        } @@ ignore +
+        } +
         /**
          * EXERCISE
          *
@@ -331,7 +400,7 @@ object PullBased extends ZIOSpecDefault {
           for {
             dropped <- ZIO.succeed(stream.drop(2))
           } yield assertTrue(dropped.runCollect == Chunk(3, 4))
-        } @@ ignore +
+        } +
         /**
          * EXERCISE
          *
@@ -344,7 +413,7 @@ object PullBased extends ZIOSpecDefault {
           for {
             filtered <- ZIO.succeed(stream.filter(_ % 2 == 0))
           } yield assertTrue(filtered.runCollect == Chunk(2, 4))
-        } @@ ignore +
+        } +
         /**
          * EXERCISE
          *
@@ -358,7 +427,7 @@ object PullBased extends ZIOSpecDefault {
           for {
             appended <- ZIO.succeed(stream1 ++ stream2)
           } yield assertTrue(appended.runCollect == Chunk(1, 2, 3, 4, 5, 6, 7, 8))
-        } @@ ignore +
+        } +
         /**
          * EXERCISE
          *
@@ -384,7 +453,7 @@ object PullBased extends ZIOSpecDefault {
           for {
             mapped <- ZIO.succeed(stream.mapAccum(0)((s, a) => (s + a, s + a)))
           } yield assertTrue(mapped.runCollect == Chunk(1, 3, 6, 10))
-        } @@ ignore +
+        } +
         /**
          * EXERCISE
          *
@@ -397,7 +466,7 @@ object PullBased extends ZIOSpecDefault {
           for {
             folded <- ZIO.succeed(stream.foldLeft(0)(_ + _))
           } yield assertTrue(folded == 10)
-        } @@ ignore
+        }
     } +
       suite("advanced constructors") {
 
