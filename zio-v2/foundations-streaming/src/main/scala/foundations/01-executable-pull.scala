@@ -202,9 +202,41 @@ object PullBased extends ZIOSpecDefault {
           self.iterator().flatMap(a => f(a).iterator())
       }
 
-    final def mapAccum[S, B](initial: S)(f: (S, A) => (S, B)): Stream[B] = ???
+    final def mapAccum[S, B](initial: S)(f: (S, A) => (S, B)): Stream[B] =
+      new Stream[B] {
+        def iterator(): ClosableIterator[B] =
+          new ClosableIterator[B] {
+            var state = initial
+            val iter = self.iterator()
 
-    final def foldLeft[S](initial: S)(f: (S, A) => S): S = ???
+            def close(): Unit = iter.close()
+
+            def hasNext: Boolean = iter.hasNext
+
+            def next(): B = {
+              val a = iter.next()
+              val (newState, b) = f(state, a)
+
+              state = newState
+              b
+            }
+          }
+      }
+
+    final def foldLeft[S](initial: S)(f: (S, A) => S): S = {
+      var state = initial
+      val iter = self.iterator()
+
+      try {
+        while (iter.hasNext) {
+          state = f(state, iter.next())
+        }
+      } finally {
+        iter.close()
+      }
+
+      state
+  }
 
     final def zip[B](that: Stream[B]): Stream[(A, B)] = ???
 
