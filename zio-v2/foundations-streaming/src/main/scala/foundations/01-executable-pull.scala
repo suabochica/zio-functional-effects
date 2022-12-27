@@ -342,12 +342,47 @@ object PullBased extends ZIOSpecDefault {
         }
       }
 
-    def unfold[S, A](initial: S)(f: S => Option[S]): Stream[S] = ???
+    def unfold[S, A](initial: S)(f: S => Option[S]): Stream[S] =
+      new Stream[S] {
+        def iterator(): ClosableIterator[S] =
+          new ClosableIterator[S] {
+            var next0: Option[S] = Some(initial)
+
+            def close(): Unit = ()
+
+            def hasNext: Boolean = next0.isDefined
+
+            def next: S = {
+              var s = next0.get
+
+              next0 = f(s)
+              s
+            }
+          }
+      }
 
     def iterate[S](initial: S)(f: S => S): Stream[S] = unfold(initial)(s => Some(f(s)))
 
     def attempt[A](a: => A): Stream[A] =
-      ???
+      new Stream[A] {
+        def iterator(): ClosableIterator[A] =
+          new ClosableIterator[A] {
+            lazy val element = a
+            var isFirst = true
+
+            def hasNext: Boolean = isFirst
+
+            def close(): Unit = ()
+
+            def next(): A =
+              if (!isFirst) {
+                throw new NoSuchElementException("Already consumed singleton element")
+              } else {
+                isFirst = false
+                element
+              }
+          }
+      }
 
     def suspend[A](stream: => Stream[A]): Stream[A] =
       ???
