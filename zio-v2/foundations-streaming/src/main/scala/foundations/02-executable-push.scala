@@ -30,7 +30,8 @@ import zio.test.TestAspect._
  * termination. Notably, this model does not include backpressure.
  */
 object PushBased extends ZIOSpecDefault {
-  trait Stream[+A] { self =>
+  trait Stream[+A] {
+    self =>
     def receive(onElement: A => Unit, onDone: () => Unit): Unit
 
     final def ensuring(finalizer: => Unit): Stream[A] = new Stream[A] {
@@ -38,7 +39,7 @@ object PushBased extends ZIOSpecDefault {
         self.receive(onElement, () => {
           try finalizer
           finally onDone()
-      })
+        })
     }
 
     final def map[B](f: A => B): Stream[B] = new Stream[B] {
@@ -71,7 +72,7 @@ object PushBased extends ZIOSpecDefault {
           self.receive({ a =>
             val t = dropped.getAndIncrement()
 
-            if (t < n) onElement(a)
+            if (t >= n) onElement(a)
           }, onDone)
       }
 
@@ -131,8 +132,8 @@ object PushBased extends ZIOSpecDefault {
       scala.concurrent.ExecutionContext.global.execute { () =>
         subscribed.await()
         self.receive(
-          a => subscribers.get.map(_._1).foreach(_ (a)),
-          () => subscribers.get.map(_._2).foreach(_ ())
+          a => subscribers.get.map(_._1).foreach(_(a)),
+          () => subscribers.get.map(_._2).foreach(_())
         )
       }
 
@@ -147,26 +148,26 @@ object PushBased extends ZIOSpecDefault {
       (s, s)
     }
 
-    final def mkString(sep: String): String =
-        self.foldLeft("") {
-          case (acc, a) =>
-            if (acc.nonEmpty)
-              acc + sep + a.toString()
-            else
-              a.toString()
-        }
+    final def makeString(sep: String): String =
+      self.foldLeft("") {
+        case (acc, a) =>
+          if (acc.nonEmpty)
+            acc + sep + a.toString()
+          else
+            a.toString()
+      }
 
     /**
-     *  'runCollect' without 'foldLeft'
-    final def runCollect: Chunk[A] = {
-      val chunkRef = new AtomicReference[Chunk[A]](Chunk.empty)
-      val countDownLatch = new java.util.concurrent.CountDownLatch(1)
-
-      receive(a => chunkRef.updateAndGet(_ :+ a), () => countDownLatch.countDown())
-      countDownLatch.await()
-      chunkRef.get()
-    }
-    */
+     * 'runCollect' without 'foldLeft'
+     * final def runCollect: Chunk[A] = {
+     * val chunkRef = new AtomicReference[Chunk[A]](Chunk.empty)
+     * val countDownLatch = new java.util.concurrent.CountDownLatch(1)
+     *
+     * receive(a => chunkRef.updateAndGet(_ :+ a), () => countDownLatch.countDown())
+     * countDownLatch.await()
+     * chunkRef.get()
+     * }
+     */
 
     final def runCollect: Chunk[A] = foldLeft[Chunk[A]](Chunk.empty[A])(_ :+ _)
 
@@ -194,7 +195,7 @@ object PushBased extends ZIOSpecDefault {
     val empty: Stream[Nothing] = Stream[Nothing]()
 
     def unfold[S, A](initial: S)(f: S => Option[S]): Stream[S] =
-      Stream(initial) ++ f(initial).fold[Stream[S]](Stream.empty)(s => unfold[S, A](s)(f))
+      Stream(initial) ++ f(initial).fold[Stream[S]](Stream.empty)(s => unfold(s)(f))
 
     def iterate[S](initial: S)(f: S => S): Stream[S] = unfold(initial)(s => Some(f(s)))
 
@@ -202,7 +203,7 @@ object PushBased extends ZIOSpecDefault {
 
     def suspend[A](stream0: => Stream[A]): Stream[A] =
       new Stream[A] {
-        lazy val stream = stream0
+        lazy val stream: Stream[A] = stream0
 
         def receive(onElement: A => Unit, onDone: () => Unit): Unit =
           stream.receive(onElement, onDone)
@@ -240,7 +241,7 @@ object PushBased extends ZIOSpecDefault {
           for {
             mapped <- ZIO.succeed(stream.map(_ + 1))
           } yield assertTrue(mapped.runCollect == Chunk(2, 3, 4, 5))
-        } @@ ignore +
+        } +
           /**
            * EXERCISE
            *
@@ -253,7 +254,7 @@ object PushBased extends ZIOSpecDefault {
             for {
               taken <- ZIO.succeed(stream.take(2))
             } yield assertTrue(taken.runCollect == Chunk(1, 2))
-          } @@ ignore +
+          } +
           /**
            * EXERCISE
            *
@@ -266,7 +267,7 @@ object PushBased extends ZIOSpecDefault {
             for {
               dropped <- ZIO.succeed(stream.drop(2))
             } yield assertTrue(dropped.runCollect == Chunk(3, 4))
-          } @@ ignore +
+          } +
           /**
            * EXERCISE
            *
@@ -279,7 +280,7 @@ object PushBased extends ZIOSpecDefault {
             for {
               filtered <- ZIO.succeed(stream.filter(_ % 2 == 0))
             } yield assertTrue(filtered.runCollect == Chunk(2, 4))
-          } @@ ignore +
+          } +
           /**
            * EXERCISE
            *
@@ -293,7 +294,7 @@ object PushBased extends ZIOSpecDefault {
             for {
               appended <- ZIO.succeed(stream1 ++ stream2)
             } yield assertTrue(appended.runCollect == Chunk(1, 2, 3, 4, 5, 6, 7, 8))
-          } @@ ignore +
+          } +
           /**
            * EXERCISE
            *
@@ -306,7 +307,7 @@ object PushBased extends ZIOSpecDefault {
             for {
               flatMapped <- ZIO.succeed(stream.flatMap(a => Stream(a, a)))
             } yield assertTrue(flatMapped.runCollect == Chunk(1, 1, 2, 2, 3, 3, 4, 4))
-          } @@ ignore +
+          } +
           /**
            * EXERCISE
            *
@@ -319,7 +320,7 @@ object PushBased extends ZIOSpecDefault {
             for {
               mapped <- ZIO.succeed(stream.mapAccum(0)((s, a) => (s + a, s + a)))
             } yield assertTrue(mapped.runCollect == Chunk(1, 3, 6, 10))
-          } @@ ignore +
+          } +
           /**
            * EXERCISE
            *
@@ -332,7 +333,7 @@ object PushBased extends ZIOSpecDefault {
             for {
               folded <- ZIO.succeed(stream.foldLeft(0)(_ + _))
             } yield assertTrue(folded == 10)
-          } @@ ignore
+          }
       } +
         suite("advanced constructors") {
 
@@ -356,7 +357,8 @@ object PushBased extends ZIOSpecDefault {
              * an infinite list!
              */
             test("iterate") {
-              lazy val evenIntegers: Stream[Int] = ???
+              lazy val evenIntegers: Stream[Int] =
+                Stream.iterate(1)(_ + 1).filter(_ % 2 == 0)
 
               assertTrue(evenIntegers.take(2).runCollect == Chunk(2, 4))
             } @@ ignore

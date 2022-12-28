@@ -37,7 +37,7 @@ object PullBased extends ZIOSpecDefault {
       private var isFirst: Boolean = true
       private lazy val that = that0
 
-      def hasNext =
+      def hasNext: Boolean =
         if (current.hasNext) true
         else {
           if (isFirst) {
@@ -48,25 +48,25 @@ object PullBased extends ZIOSpecDefault {
           } else false
         }
 
-      def next() =
+      def next(): A1 =
         if (hasNext) current.next()
         else throw new NoSuchElementException("next() called on empty iterator")
 
-      def close() = current.close()
+      def close(): Unit = current.close()
     }
 
     def map[B](f: A => B): ClosableIterator[B] = new ClosableIterator[B] {
-      def hasNext = self.hasNext
+      def hasNext: Boolean = self.hasNext
 
-      def next() = f(self.next())
+      def next(): B = f(self.next())
 
-      def close() = self.close()
+      def close(): Unit = self.close()
     }
 
     def flatMap[B](f: A => ClosableIterator[B]): ClosableIterator[B] = new ClosableIterator[B] {
       private var current: ClosableIterator[B] = null
 
-      def hasNext = {
+      def hasNext: Boolean = {
         @tailrec
         def loop: Boolean =
           if (current == null) {
@@ -84,11 +84,11 @@ object PullBased extends ZIOSpecDefault {
         loop
       }
 
-      def next() =
+      def next(): B =
         if (!hasNext) throw new NoSuchElementException("next() called on empty iterator")
         else current.next()
 
-      def close() = {
+      def close(): Unit = {
         if (current != null) current.close()
         self.close()
       }
@@ -107,7 +107,7 @@ object PullBased extends ZIOSpecDefault {
       new Stream[A] {
         def iterator(): ClosableIterator[A] =
           new ClosableIterator[A] {
-            val outer = self.iterator()
+            val outer: ClosableIterator[A] = self.iterator()
             var taken = 0
 
             def hasNext: Boolean =
@@ -128,7 +128,7 @@ object PullBased extends ZIOSpecDefault {
       new Stream[A] {
         override def iterator(): ClosableIterator[A] =
           new ClosableIterator[A] {
-            val outer = self.iterator()
+            val outer: ClosableIterator[A] = self.iterator()
 
             (1 to n).foreach { _ =>
               if (outer.hasNext) outer.next()
@@ -144,8 +144,8 @@ object PullBased extends ZIOSpecDefault {
       new Stream[A] {
         def iterator(): ClosableIterator[A] =
           new ClosableIterator[A] {
-            val outer = self.iterator()
-            var nextElement = findNext()
+            val outer: ClosableIterator[A] = self.iterator()
+            var nextElement: Option[A] = findNext()
 
             @tailrec
             def findNext(): Option[A] =
@@ -206,8 +206,8 @@ object PullBased extends ZIOSpecDefault {
       new Stream[B] {
         def iterator(): ClosableIterator[B] =
           new ClosableIterator[B] {
-            var state = initial
-            val iter = self.iterator()
+            var state: S = initial
+            val iter: ClosableIterator[A] = self.iterator()
 
             def close(): Unit = iter.close()
 
@@ -556,10 +556,11 @@ object PullBased extends ZIOSpecDefault {
            * an infinite list!
            */
           test("iterate") {
-            lazy val evenIntegers: Stream[Int] = ???
+            lazy val evenIntegers: Stream[Int] =
+              Stream.iterate(1)(_ + 1).filter(_ % 2 == 0)
 
             assertTrue(evenIntegers.take(2).runCollect == Chunk(2, 4))
-          } @@ ignore
+          }
       } +
       suite("resources") {
 
