@@ -242,8 +242,8 @@ object PullBased extends ZIOSpecDefault {
       new Stream[(A, B)] {
         def iterator(): ClosableIterator[(A, B)] =
           new ClosableIterator[(A, B)] {
-            val left = self.iterator()
-            val right = that.iterator()
+            val left: ClosableIterator[A] = self.iterator()
+            val right: ClosableIterator[B] = that.iterator()
 
             def close(): Unit = {
               try left.close()
@@ -260,8 +260,8 @@ object PullBased extends ZIOSpecDefault {
       new Stream[A1] {
         def iterator(): ClosableIterator[A1] =
           new ClosableIterator[A1] {
-            val left = self.iterator()
-            val right = that.iterator()
+            val left: ClosableIterator[A] = self.iterator()
+            val right: ClosableIterator[A1] = that.iterator()
             var readLeft = true
 
             def hasNext: Boolean = left.hasNext || right.hasNext
@@ -367,7 +367,7 @@ object PullBased extends ZIOSpecDefault {
       new Stream[A] {
         def iterator(): ClosableIterator[A] =
           new ClosableIterator[A] {
-            lazy val element = a
+            lazy val element: A = a
             var isFirst = true
 
             def hasNext: Boolean = isFirst
@@ -385,12 +385,43 @@ object PullBased extends ZIOSpecDefault {
       }
 
     def suspend[A](stream: => Stream[A]): Stream[A] =
-      ???
+      new Stream[A] {
+        def iterator(): ClosableIterator[A] =
+          new ClosableIterator[A] {
+            lazy val streamIterator: ClosableIterator[A] = stream.iterator()
+
+            def close(): Unit = streamIterator.close()
+
+            def hasNext: Boolean = streamIterator.hasNext
+
+            def next(): A = streamIterator.next()
+          }
+      }
 
     def fromFile(file: String): Stream[Byte] = {
       import java.io.FileInputStream
 
-      ???
+      new Stream[Byte] {
+        def iterator(): ClosableIterator[Byte] = {
+          new ClosableIterator[Byte] {
+            val fis = new FileInputStream(file)
+            var byte: Int = fis.read()
+
+            def close(): Unit = fis.close()
+
+            def hasNext: Boolean = byte >= 0
+
+            def next(): Byte = {
+              if (byte < 0) throw new NoSuchElementException("There are no more bytes to read")
+
+              val b = byte.toByte
+
+              byte = fis.read()
+              b
+            }
+          }
+        }
+      }
     }
   }
 
@@ -516,7 +547,7 @@ object PullBased extends ZIOSpecDefault {
             Stream.unfold(0)(i => Some((i + 1)))
 
           assertTrue(integers.take(5).runCollect.length == 5)
-        } @@ ignore +
+        } +
           /**
            * EXERCISE
            *
