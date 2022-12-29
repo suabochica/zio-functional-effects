@@ -18,6 +18,10 @@ package foundations.concurrent
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 
+import zio._
+import zio.test._
+import zio.test.TestAspect._
+
 /**
  * In this section, you will use the executable push-based stream encoding
  * to implement a variety of concurrent operators. These operators are not
@@ -82,7 +86,7 @@ object ConcurrentSpec extends ZIOSpecDefault {
     final def aggregateUntil(maxSize: Int, maxDelay: Duration): Stream[Chunk[A]] = {
       new Stream[Chunk[A]] {
         val chunkRef = new AtomicReference[Chunk[A]](Chunk.empty)
-        def receive = onElement: Chunk[A] => Unit, onDone: () => Unit): Unit = {
+        def receive (onElement: Chunk[A] => Unit, onDone: () => Unit): Unit = {
           self.receive({ a =>
             val chunk = chunkRef.updateAndGet(_ :+ a)
 

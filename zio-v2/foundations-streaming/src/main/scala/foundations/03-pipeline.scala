@@ -100,7 +100,7 @@ object SimplePipelineSpec extends ZIOSpecDefault {
           val result = pipeline.run(stream).runCollect
 
           assertTrue(result == Chunk(2, 3, 4, 5, 6))
-        } @@ ignore +
+        } +
           /**
            * EXERCISE
            *
@@ -115,7 +115,7 @@ object SimplePipelineSpec extends ZIOSpecDefault {
             val result = pipeline.run(stream).runCollect
 
             assertTrue(result == Chunk(1, 2, 3, 4, 5))
-          } @@ ignore +
+          } +
           /**
            * EXERCISE
            *
@@ -130,7 +130,7 @@ object SimplePipelineSpec extends ZIOSpecDefault {
             val result = pipeline.run(stream).runCollect
 
             assertTrue(result == Chunk(2, 3, 4, 5, 6))
-          } @@ ignore +
+          } +
           /**
            * EXERCISE
            *
@@ -145,7 +145,7 @@ object SimplePipelineSpec extends ZIOSpecDefault {
             val result = pipeline.run(stream).runCollect
 
             assertTrue(result == Chunk(2, 4))
-          } @@ ignore
+          }
       } +
         suite("Sink") {
 
@@ -165,7 +165,7 @@ object SimplePipelineSpec extends ZIOSpecDefault {
             val result = sink.run(stream)
 
             assertTrue(i == 30)
-          } @@ ignore +
+          } +
             /**
              * EXERCISE
              *
@@ -181,7 +181,7 @@ object SimplePipelineSpec extends ZIOSpecDefault {
               val result = sink.run(stream)
 
               assertTrue(i == 15)
-            } @@ ignore +
+            } +
             /**
              * EXERCISE
              *
@@ -196,7 +196,7 @@ object SimplePipelineSpec extends ZIOSpecDefault {
               sink.run(stream)
 
               assertCompletes
-            } @@ ignore
+            }
         }
     }
 }
