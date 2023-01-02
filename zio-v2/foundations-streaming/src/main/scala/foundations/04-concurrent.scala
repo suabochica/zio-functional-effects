@@ -102,13 +102,38 @@ object ConcurrentSpec extends ZIOSpecDefault {
 
     final def batchUntil(maxSize: Int, maxDelay: Duration): Stream[Chunk[A]] = ???
 
-    final def runCollect: Chunk[A] = {
-      val chunkRef = new AtomicReference[Chunk[A]](Chunk.empty)
+    final def ++[A1 >: A](that: => Stream[A1]): Stream[A1] =
+      new Stream[A1] {
+        def receive(onElement: A1 => Unit, onDone: () => Unit): Unit =
+          self.receive(onElement, () => that.receive(onElement, onDone))
+      }
+
+    final def flatMap[B](f: A => Stream[B]): Stream[B] =
+      new Stream[B] {
+        def receive(onElement: B => Unit, onDone: () => Unit): Unit =
+          self.receive(a => f(a).receive(onElement, () => ()), onDone)
+      }
+
+    final def foldLeft[S](initial: S)(f: (S, A) => S): S = {
+      val stateRef = new AtomicReference[S](initial)
       val countDownLatch = new java.util.concurrent.CountDownLatch(1)
 
-      receive(a => chunkRef.updateAndGet(_ :+ a), () => countDownLatch.countDown())
+      receive(a => stateRef.updateAndGet(s0 => f(s0, a)), () => countDownLatch.countDown())
       countDownLatch.await()
-      chunkRef.get()
+      stateRef.get()
+    }
+
+    final def makeString(separator: String): String =
+      self.foldLeft("") {
+        case(acc, a) =>
+          if (acc.nonEmpty) acc + separator + a .toString
+          else a.toString
+      }
+
+    final def runCollect: Chunk[A] = foldLeft[Chunk[A]](Chunk.empty[A])(_ :+ _)
+
+    final def runLast: Option[A] = foldLeft[Option[A]](None) {
+      case (_, a) => Some(a)
     }
   }
   object Stream {
@@ -135,7 +160,7 @@ object ConcurrentSpec extends ZIOSpecDefault {
         val merged = stream1.merge(stream2)
 
         assertTrue(merged.runCollect.toSet == Set(1, 2, 3, 4, 5, 6))
-      } @@ ignore,
+      },
       /**
        * EXERCISE
        *
@@ -148,7 +173,7 @@ object ConcurrentSpec extends ZIOSpecDefault {
         val mapped = stream.mapPar(_ * 2)
 
         assertTrue(mapped.runCollect.toSet == Set(2, 4, 6))
-      } @@ ignore,
+      },
       /**
        * EXERCISE
        *
