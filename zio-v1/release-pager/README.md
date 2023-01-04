@@ -1,6 +1,6 @@
 # Release Pager
 
-A Telegram bot is alternative to [GitHub watch function](https://docs.github.com/en/account-and-profile/managing-subscriptions-and-notifications-on-github/managing-subscriptions-for-activity-on-github/viewing-your-subscriptions). It is checking for new releases in your pre-defined list of GitHub repositorues.
+A Telegram bot is alternative to [GitHub watch function](https://docs.github.com/en/account-and-profile/managing-subscriptions-and-notifications-on-github/managing-subscriptions-for-activity-on-github/viewing-your-subscriptions). It is checking for new releases in your pre-defined list of GitHub repositories.
 
 ## 🧰 Tech Stack
 - Scala v.2.13.8
