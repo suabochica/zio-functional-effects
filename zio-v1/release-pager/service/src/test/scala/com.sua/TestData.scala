@@ -1,9 +1,9 @@
 package com.sua
 
-import java.time.Instant
-
-import com.sua.client.github.GitHubClient
+import com.sua.client.github.GitHubRelease
 import com.sua.subscription.Repository.{Name, Version}
+
+import java.time.Instant
 
 object TestData {
   val finalVersion: Version = Version("1.0.0")
