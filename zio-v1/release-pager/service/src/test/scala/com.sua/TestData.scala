@@ -14,7 +14,7 @@ object TestData {
 
   val rcRelease: GitHubRelease = GitHubRelease(rcVersion, timestamp1)
   val finalRelease: GitHubRelease = GitHubRelease(finalVersion, timestamp2)
-  val releases: List[GitHubRelease] = List(rc, finalRelease)
+  val releases: List[GitHubRelease] = List(rcRelease, finalRelease)
 
   def message(name: Name) = s"There is a new version of ${name.value} available: ${finalVersion.value}"
 }

@@ -3,10 +3,8 @@ package com.sua.validation
 import com.sua.PagerError.NotFound
 import com.sua.log.Logger
 import com.sua.subscription.Repository.Name
+import com.sua.client.github.GitHubClientMock
 
-// TODO: Add Github client mock
-
-import zio.Task
 import zio.test.Assertion._
 import zio.test._
 import zio.test.mock.Expectation._

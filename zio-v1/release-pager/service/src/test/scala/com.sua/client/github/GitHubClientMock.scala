@@ -3,7 +3,7 @@ package com.sua.client.github
 import zio.test.mock.mockable
 @mockable[GitHubClient.service]
 
-object GithubClientMock
+object GitHubClientMock
 // Using `mockable` we generate code below
 //object GitHubClientMock extends Mock[GitHubClient] {
 //  object RepositoryExists extends Effect[Name, PagerError, Name]

@@ -2,7 +2,7 @@ package com.sua.lookup
 
 import com.sua.Generators.repositoryName
 import com.sua.client.github.GitHubClient.GitHubClient
-import com.sua.client.github.{GitHubClient, GithubClientMock}
+import com.sua.client.github.{GitHubClient, GitHubClientMock}
 import com.sua.client.telegram.TelegramClient.TelegramClient
 import com.sua.client.telegram.{ChatId, TelegramClient}
 import com.sua.log.Logger
@@ -27,7 +27,7 @@ object LiveReleaseCheckerSpec extends DefaultRunnableSpec {
     testM("Do not bother subscribers if there are no version updates") {
       checkM(repositoryName) { name =>
         val repositories = Map(name -> Some(finalVersion))
-        val githubClientMocks: ULayer[GitHubClient] = GithubClientMock.Releases(equalTo(name), value(List(finalRelease)))
+        val githubClientMocks: ULayer[GitHubClient] = GitHubClientMock.Releases(equalTo(name), value(List(finalRelease)))
         val telegramClientMocks: ULayer[TelegramClient] = TelegramClient.empty
         val subscriptionLogicMocks = ULayer[SubscriptionLogic] =
           SubscriptionLogicMock.ListRepositories(value(repositories)) ++
@@ -39,7 +39,7 @@ object LiveReleaseCheckerSpec extends DefaultRunnableSpec {
     testM("Update repository version for the very first time") {
       checkM(repositoryName) { name =>
         val repositories = Map(name -> None)
-        val githubClientMocks: ULayer[GitHubClient] = GithubClientMock.Releases(equalTo(name), value(List(finalRelease)))
+        val githubClientMocks: ULayer[GitHubClient] = GitHubClientMock.Releases(equalTo(name), value(List(finalRelease)))
         val telegramClientMocks: ULayer[TelegramClient] = TelegramClient.BroadcastMessage(equalTo(Set.empty[ChatId], message(name)), unit)
         val subscriptionLogicMocks = ULayer[SubscriptionLogic] =
           SubscriptionLogicMock.ListRepositories(value(repositories)) ++
